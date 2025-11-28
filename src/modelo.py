@@ -26,6 +26,9 @@ class Grafo:
         if not self.dirigido:
             self.lista_adyacencia[v].append((u, peso))
 
+    def es_dirigido(self):
+        return self.dirigido
+
     def obtener_lista_adyacencia(self):
         return self.lista_adyacencia
 
