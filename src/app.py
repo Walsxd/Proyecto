@@ -84,7 +84,7 @@ with col_der:
 
 
 with col_izq:
-    programs = ["Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","BFS", "DFS"]
+    programs = ["Matriz de adyacencia", "Lista de adyacencia", "Matriz de incidencia", "BFS", "DFS", "Dijkstra"]
     selected_Option = st.selectbox("Seleccione un programa: ", programs)
     if selected_Option == "BFS":
         st.header("Búsqueda en Anchura (BFS)")
@@ -130,5 +130,33 @@ with col_izq:
 
     if selected_Option == "Matriz de incidencia":
         st.header("Matriz de incidencia")
+        
+    if selected_Option == "Dijkstra":
+        st.header("Algoritmo de Dijkstra")
+        st.write("Calcula la ruta más corta entre dos nodos.")
+
+        # Inputs para nodo inicio y fin
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            start_node = st.text_input("Nodo de Inicio:", "A")
+        with col_d2:
+            end_node = st.text_input("Nodo Destino:", "F")
+
+        if st.button("Calcular Ruta"):
+            # Obtenemos los datos del grafo actual
+            datos_grafo = graph.obtener_lista_adyacencia()
+            
+            # Verificamos si los nodos existen
+            if start_node not in datos_grafo or end_node not in datos_grafo:
+                st.error(f"Error: Revisa que los nodos '{start_node}' y '{end_node}' existan en el grafo.")
+            else:
+                # Llamamos a tu función dijkstra que importamos de algoritmos.py
+                camino, costo = dijkstra(datos_grafo, start_node, end_node)
+
+                if camino:
+                    st.success(f"¡Ruta encontrada! Costo total: {costo}")
+                    st.write(f"**Camino:** {' → '.join(camino)}")
+                else:
+                    st.warning("No existe un camino entre estos dos nodos.")
 
 
