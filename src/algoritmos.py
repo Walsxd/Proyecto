@@ -17,37 +17,33 @@ def DFS(graph, start):
 def matriz_adyacencia(graph):
     return [[0, 1, 0], [1, 0, 1], [0, 1, 0]], ['A', 'B', 'C']
 
+# --- Pega esto en src/algoritmos.py ---
 def dijkstra(grafo, inicio, fin):
-    """
-    Calcula la distancia más corta desde un nodo inicio hasta un nodo fin.
-    Retorna la ruta y la distancia total.
-    """
-    # 1. Cola de prioridad: Guarda (distancia_acumulada, nodo_actual, camino_recorrido)
-    queue = [(0, inicio, [inicio])]
+    import heapq
     
-    # 2. Visited: Para no procesar nodos repetidos innecesariamente
+    # Cola de prioridad: (costo_acumulado, nodo_actual, camino_recorrido)
+    queue = [(0, inicio, [inicio])]
     visitados = set()
 
     while queue:
-        # Sacamos el nodo con la MENOR distancia acumulada (gracias a heapq)
+        # Sacamos el nodo con el menor costo acumulado
         (costo, nodo_actual, camino) = heapq.heappop(queue)
 
-        # Si llegamos al destino, retornamos el resultado
+        # Si llegamos al destino, retornamos el camino y el costo
         if nodo_actual == fin:
             return camino, costo
 
         if nodo_actual not in visitados:
             visitados.add(nodo_actual)
-
-            # Revisamos los vecinos
-            # .get() es para evitar errores si el nodo no tiene vecinos
-            vecinos = grafo.get(nodo_actual, {})
             
-            for vecino, peso in vecinos.items():
+            # Obtenemos los vecinos (sin .items() porque es una lista de tuplas)
+            vecinos = grafo.get(nodo_actual, [])
+            
+            for vecino, peso in vecinos:
                 if vecino not in visitados:
-                    # Calculamos el nuevo costo total y actualizamos el camino
                     nuevo_costo = costo + peso
                     nuevo_camino = camino + [vecino]
                     heapq.heappush(queue, (nuevo_costo, vecino, nuevo_camino))
 
-    return None, float('inf') # Si no hay camino
+    # Si se vacía la cola y no llegamos al destino
+    return None, float('inf')
