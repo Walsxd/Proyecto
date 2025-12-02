@@ -26,18 +26,18 @@ def matriz_incidencia(graph):
 ## Dado el grafo y dos nodos, debe retornar el camino mas corto entre ambos nodos.
 ## Los datos de ingreso son el grafo expresado como un diccionario {'A': {'B': 1}, 'B': {'A': 1}}
 ## y los nodos inicial y final como strings 'A', 'C'
-## Se debe retornar una arreglo con el camino mas corto
+## Se debe retornar una arreglo con el camino mas corto y el costo total
 ## En caso de que no exista camino, retornar un arreglo vacio []
 def bellman_ford(graph, start, end):
-    return ["A", "B", "C"]
+    return ["A", "B", "C"], 2
 
 ## Dado el grafo y dos nodos, debe retornar el camino mas corto entre ambos nodos.
 ## Los datos de ingreso son el grafo expresado como un diccionario {'A': {'B': 1}, 'B': {'A': 1}}
 ## y los nodos inicial y final como strings 'A', 'C'
-## Se debe retornar una arreglo con el camino mas corto
+## Se debe retornar una arreglo con el camino mas corto y el costo total
 ## En caso de que no exista camino, retornar un arreglo vacio []
 def floyd_warshall(graph, start, end):
-    return ["A", "B", "C"]
+    return ["A", "B", "C"], 2
 
 
 # --- Pega esto en src/algoritmos.py ---

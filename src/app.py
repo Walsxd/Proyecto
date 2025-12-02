@@ -65,151 +65,176 @@ with col_der:
     st.subheader("Grafo seleccionado: ")
 
     G = graph.obtener_datos_visuales()
-    es_sinPesos = all(w == 0 for u, v, w in G.edges(data='weight', default=0))
     fig, ax = plt.subplots(figsize=(8, 8))
-    pos = nx.spring_layout(G, seed=40)
-    nx.draw(G,
-            pos,
-            ax = ax,
-            with_labels=True,
-            node_color='lightblue',
-            node_size=500,
-            edge_color='lightgreen',
-            font_size=12,
-            font_weight='bold',
-            )
+    pos = nx.circular_layout(G)
 
-    if not es_sinPesos:
+    nx.draw(
+        G,
+        pos,
+        ax=ax,
+        with_labels=True,
+        node_color='lightblue',
+        node_size=800,
+        edge_color='gray',
+        font_size=10,
+        font_weight='bold',
+        width=1.5,
+    )
+    es_sinpesos = all(w == 0 for u, v, w in G.edges(data='weight', default=0))
+    if not es_sinpesos :
         etiquetas = nx.get_edge_attributes(G, 'weight')
-        nx.draw_networkx_edge_labels(G, pos, edge_labels=etiquetas, ax=ax, font_size=10)
-    fig.set_facecolor('Gray')
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=etiquetas, ax=ax, font_size=10, label_pos=0.3)
+
+    fig.set_facecolor('lightgray')
     st.pyplot(fig)
 
 
-with col_izq:
-    programs = ["Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
-    selected_Option = st.selectbox("Seleccione un programa: ", programs)
-    if selected_Option == "BFS":
-        st.header("Búsqueda en Anchura (BFS)")
-        ## Descripcion breve de BFS
-        st.write("")
+if not graph.obtener_lista_adyacencia():
+    with (col_izq):
+        st.warning("Aún no se ha agregado ninguna arista al grafo.")
+else:
+    with (col_izq):
+        programs = ["Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
+        selected_Option = st.selectbox("Seleccione un programa: ", programs)
+        if selected_Option == "BFS":
+            st.header("Búsqueda en Anchura (BFS)")
+            ## Descripcion breve de BFS
+            st.write("")
 
-        start_node = st.text_input("Nodo inicial:", "A")
-        if start_node.islower() or len(start_node) != 1 or not start_node.isalpha():
-            st.error("El nodo ingresado no es valido.")
-        else:
-            result = BFS(graph.obtener_lista_adyacencia(), start_node)
-            st.write("Nodos visitados en orden:", " -> ".join(result))
+            start_node = st.text_input("Nodo inicial:", "A")
+            if start_node.islower() or len(start_node) != 1 or not start_node.isalpha():
+                st.error("El nodo ingresado no es valido.")
+            else:
+                result = BFS(graph.obtener_lista_adyacencia(), start_node)
+                st.write("Nodos visitados en orden:")
+                st.code(" -> ".join(result), language="text")
 
-    if selected_Option == "DFS":
-        st.header("Búsqueda en Anchura (DFS)")
-        ## Descripcion breve de DFS
-        st.write("")
+        if selected_Option == "DFS":
+            st.header("Búsqueda en Anchura (DFS)")
+            ## Descripcion breve de DFS
+            st.write("")
 
-        start_node = st.text_input("Nodo inicial:", "A")
-        if start_node.islower() or len(start_node) != 1 or not start_node.isalpha():
-            st.error("El nodo ingresado no es valido.")
-        else:
-            result = DFS(graph.obtener_lista_adyacencia(), start_node)
-            st.write("Nodos visitados en orden:", " -> ".join(result))
+            start_node = st.text_input("Nodo inicial:", "A")
+            if start_node.islower() or len(start_node) != 1 or not start_node.isalpha():
+                st.error("El nodo ingresado no es valido.")
+            else:
+                result = DFS(graph.obtener_lista_adyacencia(), start_node)
+                st.write("Nodos visitados en orden:")
+                st.code(" -> ".join(result), language="text")
 
 
-    if selected_Option == "Lista de adyacencia":
-        st.header("Lista de adyacencia")
-        lista_adyacencia = graph.obtener_lista_adyacencia()
-        for nodo, adyacentes in lista_adyacencia.items():
-            adyacentes_str = ', '.join([f"{vecino} (peso: {peso})" for vecino, peso in adyacentes])
-            st.write(f"{nodo} -> {adyacentes_str}")
+        if selected_Option == "Lista de adyacencia":
+            lista_adyacencia = graph.obtener_lista_adyacencia()
+            cols = st.columns(len(lista_adyacencia)) if len(lista_adyacencia) < 4 else [None]
 
-    if selected_Option == "Matriz de adyacencia":
-        st.header("Matriz de adyacencia")
-        matriz, letras = matriz_adyacencia(graph.obtener_lista_adyacencia())
-        df = pd.DataFrame(matriz, index=letras, columns=letras)
+            for nodo, vecinos in lista_adyacencia.items():
+                with st.expander(f"Nodo {nodo}", expanded=False):
+                    if not vecinos:
+                        st.caption("Sin conexiones salientes")
+                    for vecino, peso in vecinos:
+                        st.write(f"{nodo} ➡ **{vecino}** , Peso: `{peso}`")
 
-        estilos_css = [
-            {'selector': 'th', 'props': [('text-align', 'center')]},
-            {'selector': 'td', 'props': [('text-align', 'center')]},
-        ]
+        if selected_Option == "Matriz de adyacencia":
+            st.header("Matriz de adyacencia")
+            matriz, letras = matriz_adyacencia(graph.obtener_lista_adyacencia())
+            df = pd.DataFrame(matriz, index=letras, columns=letras)
 
-        df_algo = df.style.set_table_styles(estilos_css)
+            estilos_css = [
+                {'selector': 'th', 'props': [('text-align', 'center')]},
+                {'selector': 'td', 'props': [('text-align', 'center')]},
+            ]
 
-        st.table(df_algo)
+            df_algo = df.style.set_table_styles(estilos_css)
 
-    if selected_Option == "Matriz de incidencia":
-        st.header("Matriz de incidencia")
-        matriz, letras = matriz_incidencia(graph.obtener_lista_adyacencia())
-        df = pd.DataFrame(matriz, index=letras, columns=letras)
+            st.table(df_algo)
 
-        estilos_css = [
-            {'selector': 'th', 'props': [('text-align', 'center')]},
-            {'selector': 'td', 'props': [('text-align', 'center')]},
-        ]
+        if selected_Option == "Matriz de incidencia":
+            st.header("Matriz de incidencia")
+            matriz, letras = matriz_incidencia(graph.obtener_lista_adyacencia())
+            df = pd.DataFrame(matriz, index=letras, columns=letras)
 
-        df_algo = df.style.set_table_styles(estilos_css)
+            estilos_css = [
+                {'selector': 'th', 'props': [('text-align', 'center')]},
+                {'selector': 'td', 'props': [('text-align', 'center')]},
+            ]
 
-        st.table(df_algo)
+            df_algo = df.style.set_table_styles(estilos_css)
 
-     if selected_Option == "Dijkstra":
-        st.header("Algoritmo de Dijkstra")
-        st.write("Calcula la ruta más corta entre dos nodos.")
+            st.table(df_algo)
 
-        # Inputs para nodo inicio y fin
-        col_d1, col_d2 = st.columns(2)
-        with col_d1:
-            start_node = st.text_input("Nodo de Inicio:", "A")
-        with col_d2:
-            end_node = st.text_input("Nodo Destino:", "F")
+        if selected_Option == "Dijkstra":
+           st.header("Algoritmo de Dijkstra")
+             ## Descripcion breve de Dijkstra
+           st.write("")
+           if es_sinpesos:
+               st.info("Dijkstra no es adecuado para grafos sin pesos.")
 
-        if st.button("Calcular Ruta"):
-            # Obtenemos los datos del grafo actual
+           st.write("Calcula la ruta más corta entre dos nodos.")
+           # Inputs para nodo inicio y fin
+           col_d1, col_d2 = st.columns(2)
+           with col_d1:
+               start_node = st.text_input("Nodo de Inicio:", "A")
+           with col_d2:
+               end_node = st.text_input("Nodo Destino:", "F")
+           if st.button("Calcular Ruta"):
+               # Obtenemos los datos del grafo actual
+               datos_grafo = graph.obtener_lista_adyacencia()
+
+               # Verificamos si los nodos existen
+               if start_node not in datos_grafo or end_node not in datos_grafo:
+                   st.error(f"Error: Revisa que los nodos '{start_node}' y '{end_node}' existan en el grafo.")
+               else:
+                   # Llamamos a tu función dijkstra que importamos de algoritmos.py
+                   camino, costo = dijkstra(datos_grafo, start_node, end_node)
+                   if camino:
+                       st.success(f"¡Ruta encontrada! Costo total: {costo}")
+                       st.write(f"**Camino:** {' → '.join(camino)}")
+                   else:
+                       st.warning("No existe un camino entre estos dos nodos.")
+
+        if selected_Option == "Bellman-Ford":
+            st.header("Algoritmo de Bellman-Ford")
+            ## Descripcion breve de Bellman-Ford
+            st.write("")
+            if es_sinpesos:
+                st.info("Bellman-Ford no es adecuado para grafos sin pesos.")
+
+            start_node = st.text_input("Nodo inicial:", "A", key="bellman_start")
+            end_node = st.text_input("Nodo final:", "C", key="bellman_end")
             datos_grafo = graph.obtener_lista_adyacencia()
-            
-            # Verificamos si los nodos existen
-            if start_node not in datos_grafo or end_node not in datos_grafo:
-                st.error(f"Error: Revisa que los nodos '{start_node}' y '{end_node}' existan en el grafo.")
+            if (start_node.islower() or len(start_node) != 1 or not start_node.isalpha()) or (end_node.islower() or len(end_node) != 1 or not end_node.isalpha()
+            or start_node not in datos_grafo or end_node not in datos_grafo):
+                st.error("Los nodos ingresados no son validos.")
             else:
-                # Llamamos a tu función dijkstra que importamos de algoritmos.py
-                camino, costo = dijkstra(datos_grafo, start_node, end_node)
-
-                if camino:
-                    st.success(f"¡Ruta encontrada! Costo total: {costo}")
-                    st.write(f"**Camino:** {' → '.join(camino)}")
+                camino, costo = bellman_ford(graph.obtener_lista_adyacencia(), start_node, end_node)
+                if not camino:
+                    st.write("No existe un camino entre los nodos ingresados.")
                 else:
-                    st.warning("No existe un camino entre estos dos nodos.")
+                    st.success(f"¡Ruta encontrada! Costo total: {costo}")
+                    st.write("Camino más corto:")
+                    st.code(" → ".join(camino), language="text")
 
-    if selected_Option == "Bellman-Ford":
-        st.header("Algoritmo de Bellman-Ford")
-        ## Descripcion breve de Bellman-Ford
-        st.write("")
+        if selected_Option == "Floyd-Warshall":
+            st.header("Algoritmo de Floyd-Warshall")
+            ## Descripcion breve de Floyd-Warshall
+            st.write("")
+            if es_sinpesos:
+                st.info("Floyd-Warshall no es adecuado para grafos sin pesos.")
 
-        start_node = st.text_input("Nodo inicial:", "A", key="bellman_start")
-        end_node = st.text_input("Nodo final:", "C", key="bellman_end")
-        if (start_node.islower() or len(start_node) != 1 or not start_node.isalpha()) or (end_node.islower() or len(end_node) != 1 or not end_node.isalpha()):
-            st.error("Los nodos ingresados no son validos.")
-        else:
-            result = bellman_ford(graph.obtener_lista_adyacencia(), start_node, end_node)
-            if not result:
-                st.write("No existe un camino entre los nodos ingresados.")
+            datos_grafo = graph.obtener_lista_adyacencia()
+            start_node = st.text_input("Nodo inicial:", "A", key="floyd_start")
+            end_node = st.text_input("Nodo final:", "C", key="floyd_end")
+            if (start_node.islower() or len(start_node) != 1 or not start_node.isalpha()) or (end_node.islower() or len(end_node) != 1 or not end_node.isalpha()
+            or start_node not in datos_grafo or end_node not in datos_grafo):
+                st.error("Los nodos ingresados no son validos.")
             else:
-                st.write("Camino más corto:")
-                st.code(" → ".join(result), language="text")
-
-    if selected_Option == "Floyd-Warshall":
-        st.header("Algoritmo de Floyd-Warshall")
-        ## Descripcion breve de Floyd-Warshall
-        st.write("")
-
-        start_node = st.text_input("Nodo inicial:", "A", key="floyd_start")
-        end_node = st.text_input("Nodo final:", "C", key="floyd_end")
-        if (start_node.islower() or len(start_node) != 1 or not start_node.isalpha()) or (end_node.islower() or len(end_node) != 1 or not end_node.isalpha()):
-            st.error("Los nodos ingresados no son validos.")
-        else:
-            result = floyd_warshall(graph.obtener_lista_adyacencia(), start_node, end_node)
-            if not result:
-                st.write("No existe un camino entre los nodos ingresados.")
-            else:
-                st.write("Camino más corto:")
-                st.code(" → ".join(result), language="text")
+                camino, costo = floyd_warshall(graph.obtener_lista_adyacencia(), start_node, end_node)
+                if not camino:
+                    st.write("No existe un camino entre los nodos ingresados.")
+                else:
+                    st.success(f"¡Ruta encontrada! Costo total: {costo}")
+                    st.write("Camino más corto:")
+                    st.code(" → ".join(camino), language="text")
 
 
 
