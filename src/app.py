@@ -149,22 +149,33 @@ with col_izq:
 
         st.table(df_algo)
 
-    if selected_Option == "Dijkstra":
+     if selected_Option == "Dijkstra":
         st.header("Algoritmo de Dijkstra")
-        ## Descripcion breve de Dijikstra
-        st.write("")
+        st.write("Calcula la ruta más corta entre dos nodos.")
 
-        start_node = st.text_input("Nodo inicial:", "A", key="dijkstra_start")
-        end_node = st.text_input("Nodo final:", "C", key="dijkstra_end")
-        if (start_node.islower() or len(start_node) != 1 or not start_node.isalpha()) or (end_node.islower() or len(end_node) != 1 or not end_node.isalpha()):
-            st.error("Los nodos ingresados no son validos.")
-        else:
-            result = dijkstra(graph.obtener_lista_adyacencia(), start_node, end_node)
-            if not result:
-                st.write("No existe un camino entre los nodos ingresados.")
+        # Inputs para nodo inicio y fin
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            start_node = st.text_input("Nodo de Inicio:", "A")
+        with col_d2:
+            end_node = st.text_input("Nodo Destino:", "F")
+
+        if st.button("Calcular Ruta"):
+            # Obtenemos los datos del grafo actual
+            datos_grafo = graph.obtener_lista_adyacencia()
+            
+            # Verificamos si los nodos existen
+            if start_node not in datos_grafo or end_node not in datos_grafo:
+                st.error(f"Error: Revisa que los nodos '{start_node}' y '{end_node}' existan en el grafo.")
             else:
-                st.write("Camino más corto:")
-                st.code(" → ".join(result), language="text")
+                # Llamamos a tu función dijkstra que importamos de algoritmos.py
+                camino, costo = dijkstra(datos_grafo, start_node, end_node)
+
+                if camino:
+                    st.success(f"¡Ruta encontrada! Costo total: {costo}")
+                    st.write(f"**Camino:** {' → '.join(camino)}")
+                else:
+                    st.warning("No existe un camino entre estos dos nodos.")
 
     if selected_Option == "Bellman-Ford":
         st.header("Algoritmo de Bellman-Ford")
