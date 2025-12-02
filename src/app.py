@@ -9,6 +9,10 @@ st.set_page_config(layout="wide")
 st.markdown("<h1 style='text-align: center; color: white;'>Proyecto Estructuras Computacionales.</h1> <br><br>", unsafe_allow_html=True)
 col_no1, col_izq, col_cen, col_der, col_no2 = st.columns([1,3, 1, 3,1])
 
+# Inicializar variable de estado para el camino resaltado
+if 'camino_resaltado' not in st.session_state:
+    st.session_state.camino_resaltado = []
+
 with col_izq:
     st.subheader("Ingrese el grafo a utilizar: ")
 
@@ -35,11 +39,13 @@ with col_izq:
     def reiniciar_grafo():
         if 'graph' in st.session_state:
             del st.session_state.graph
+        st.session_state.camino_resaltado = [] # Limpiar camino al reiniciar
 
     with c2:
         if st.button("Eliminar grafo"):
             if 'graph' in st.session_state:
                 reiniciar_grafo()
+                st.rerun()
     with c1:
         tipo = st.selectbox(
             "Tipo de grafo: ",
@@ -58,6 +64,7 @@ if agregar:
             st.error("Los nodos ingresados no son validos.")
         else:
             graph.agregar_arista(u, v, peso)
+            st.session_state.camino_resaltado = [] # Limpiar camino al modificar grafo
     except ValueError:
         st.error("Por favor ingrese los nodos en el formato correcto: 'A, B'")
 
@@ -66,20 +73,52 @@ with col_der:
 
     G = graph.obtener_datos_visuales()
     fig, ax = plt.subplots(figsize=(8, 8))
+    
+    # Usar layout circular o spring si se prefiere
     pos = nx.circular_layout(G)
+    
+    # --- LOGICA DE COLOREADO ---
+    camino = st.session_state.camino_resaltado
+    
+    # Colores por defecto
+    colores_nodos = []
+    colores_aristas = []
+    
+    # Definir colores de nodos
+    for node in G.nodes():
+        if node in camino:
+            colores_nodos.append('red') # Nodo en el camino
+        else:
+            colores_nodos.append('lightblue') # Nodo normal
+            
+    # Definir colores de aristas
+    aristas_camino = []
+    if len(camino) > 1:
+        for i in range(len(camino) - 1):
+            aristas_camino.append((camino[i], camino[i+1]))
+            if not graph.es_dirigido(): # Si no es dirigido, agregar la inversa tambien para comparar
+                 aristas_camino.append((camino[i+1], camino[i]))
 
+    for u, v in G.edges():
+        if (u, v) in aristas_camino:
+            colores_aristas.append('red')
+        else:
+            colores_aristas.append('gray')
+    
+    # Dibujar el grafo
     nx.draw(
         G,
         pos,
         ax=ax,
         with_labels=True,
-        node_color='lightblue',
+        node_color=colores_nodos, # Usamos la lista de colores dinámica
         node_size=800,
-        edge_color='gray',
+        edge_color=colores_aristas, # Usamos la lista de colores dinámica
         font_size=10,
         font_weight='bold',
-        width=1.5,
+        width=2 if not camino else [2 if c == 'red' else 1 for c in colores_aristas], # Aristas rojas mas gruesas
     )
+    
     es_sinpesos = all(w == 0 for u, v, w in G.edges(data='weight', default=0))
     if not es_sinpesos :
         etiquetas = nx.get_edge_attributes(G, 'weight')
@@ -96,9 +135,15 @@ else:
     with (col_izq):
         programs = ["Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
         selected_Option = st.selectbox("Seleccione un programa: ", programs)
+        
+        # Resetear camino si cambiamos a visualizaciones estáticas
+        if selected_Option in ["Matriz de adyacencia", "Lista de adyacencia", "Matriz de incidencia"]:
+             if st.session_state.camino_resaltado:
+                 st.session_state.camino_resaltado = []
+                 st.rerun()
+
         if selected_Option == "BFS":
             st.header("Búsqueda en Anchura (BFS)")
-            ## Descripcion breve de BFS
             st.write("")
 
             start_node = st.text_input("Nodo inicial:", "A")
@@ -110,8 +155,7 @@ else:
                 st.code(" -> ".join(result), language="text")
 
         if selected_Option == "DFS":
-            st.header("Búsqueda en Anchura (DFS)")
-            ## Descripcion breve de DFS
+            st.header("Búsqueda en Profundidad (DFS)")
             st.write("")
 
             start_node = st.text_input("Nodo inicial:", "A")
@@ -145,13 +189,14 @@ else:
             ]
 
             df_algo = df.style.set_table_styles(estilos_css)
-
             st.table(df_algo)
 
         if selected_Option == "Matriz de incidencia":
             st.header("Matriz de incidencia")
             matriz, letras = matriz_incidencia(graph.obtener_lista_adyacencia())
-            df = pd.DataFrame(matriz, index=letras, columns=letras)
+            # Ajustar columnas a número de aristas
+            columnas_aristas = [f"e{i+1}" for i in range(len(matriz[0]))] if matriz else []
+            df = pd.DataFrame(matriz, index=letras, columns=columnas_aristas)
 
             estilos_css = [
                 {'selector': 'th', 'props': [('text-align', 'center')]},
@@ -159,82 +204,80 @@ else:
             ]
 
             df_algo = df.style.set_table_styles(estilos_css)
-
             st.table(df_algo)
 
         if selected_Option == "Dijkstra":
            st.header("Algoritmo de Dijkstra")
-             ## Descripcion breve de Dijkstra
            st.write("")
            if es_sinpesos:
                st.info("Dijkstra no es adecuado para grafos sin pesos.")
 
            st.write("Calcula la ruta más corta entre dos nodos.")
-           # Inputs para nodo inicio y fin
            col_d1, col_d2 = st.columns(2)
            with col_d1:
                start_node = st.text_input("Nodo de Inicio:", "A")
            with col_d2:
                end_node = st.text_input("Nodo Destino:", "F")
+           
            if st.button("Calcular Ruta"):
-               # Obtenemos los datos del grafo actual
                datos_grafo = graph.obtener_lista_adyacencia()
 
-               # Verificamos si los nodos existen
                if start_node not in datos_grafo or end_node not in datos_grafo:
-                   st.error(f"Error: Revisa que los nodos '{start_node}' y '{end_node}' existan en el grafo.")
+                   st.error(f"Error: Revisa nodos.")
                else:
-                   # Llamamos a tu función dijkstra que importamos de algoritmos.py
                    camino, costo = dijkstra(datos_grafo, start_node, end_node)
                    if camino:
                        st.success(f"¡Ruta encontrada! Costo total: {costo}")
                        st.write(f"**Camino:** {' → '.join(camino)}")
+                       st.session_state.camino_resaltado = camino
+                       st.rerun() # Recargar para pintar
                    else:
-                       st.warning("No existe un camino entre estos dos nodos.")
+                       st.warning("No existe un camino.")
+                       st.session_state.camino_resaltado = []
 
         if selected_Option == "Bellman-Ford":
             st.header("Algoritmo de Bellman-Ford")
-            ## Descripcion breve de Bellman-Ford
             st.write("")
             if es_sinpesos:
-                st.info("Bellman-Ford no es adecuado para grafos sin pesos.")
+                st.info("Info: Bellman-Ford funciona, pero es lento para grafos sin pesos negativos.")
 
             start_node = st.text_input("Nodo inicial:", "A", key="bellman_start")
             end_node = st.text_input("Nodo final:", "C", key="bellman_end")
-            datos_grafo = graph.obtener_lista_adyacencia()
-            if (start_node.islower() or len(start_node) != 1 or not start_node.isalpha()) or (end_node.islower() or len(end_node) != 1 or not end_node.isalpha()
-            or start_node not in datos_grafo or end_node not in datos_grafo):
-                st.error("Los nodos ingresados no son validos.")
-            else:
-                camino, costo = bellman_ford(graph.obtener_lista_adyacencia(), start_node, end_node)
-                if not camino:
-                    st.write("No existe un camino entre los nodos ingresados.")
+            
+            if st.button("Calcular Bellman"):
+                datos_grafo = graph.obtener_lista_adyacencia()
+                if (start_node not in datos_grafo or end_node not in datos_grafo):
+                    st.error("Nodos no válidos.")
                 else:
-                    st.success(f"¡Ruta encontrada! Costo total: {costo}")
-                    st.write("Camino más corto:")
-                    st.code(" → ".join(camino), language="text")
+                    camino, costo = bellman_ford(graph.obtener_lista_adyacencia(), start_node, end_node)
+                    if not camino:
+                        st.write("No existe un camino.")
+                        st.session_state.camino_resaltado = []
+                    else:
+                        st.success(f"¡Ruta encontrada! Costo total: {costo}")
+                        st.code(" → ".join(camino), language="text")
+                        st.session_state.camino_resaltado = camino
+                        st.rerun()
 
         if selected_Option == "Floyd-Warshall":
             st.header("Algoritmo de Floyd-Warshall")
-            ## Descripcion breve de Floyd-Warshall
             st.write("")
-            if es_sinpesos:
-                st.info("Floyd-Warshall no es adecuado para grafos sin pesos.")
-
+            
             datos_grafo = graph.obtener_lista_adyacencia()
             start_node = st.text_input("Nodo inicial:", "A", key="floyd_start")
             end_node = st.text_input("Nodo final:", "C", key="floyd_end")
-            if (start_node.islower() or len(start_node) != 1 or not start_node.isalpha()) or (end_node.islower() or len(end_node) != 1 or not end_node.isalpha()
-            or start_node not in datos_grafo or end_node not in datos_grafo):
-                st.error("Los nodos ingresados no son validos.")
-            else:
-                camino, costo = floyd_warshall(graph.obtener_lista_adyacencia(), start_node, end_node)
-                if not camino:
-                    st.write("No existe un camino entre los nodos ingresados.")
+            
+            if st.button("Calcular Floyd"):
+                if (start_node not in datos_grafo or end_node not in datos_grafo):
+                    st.error("Nodos no válidos.")
                 else:
-                    st.success(f"¡Ruta encontrada! Costo total: {costo}")
-                    st.write("Camino más corto:")
-                    st.code(" → ".join(camino), language="text")
-
-
+                    camino, costo = floyd_warshall(graph.obtener_lista_adyacencia(), start_node, end_node)
+                    if not camino:
+                        st.write("No existe un camino.")
+                        st.session_state.camino_resaltado = []
+                    else:
+                        st.success(f"¡Ruta encontrada! Costo total: {costo}")
+                        st.code(" → ".join(camino), language="text")
+                        st.session_state.camino_resaltado = camino
+                        st.rerun()
 
