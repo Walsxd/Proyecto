@@ -3,13 +3,48 @@ import heapq
 ## Los datos de ingreso son el grafo expresado como un diccionario {'A': {'B': 1}, 'B': {'A': 1}}
 ## y el nodo inicial como un string 'A'
 def BFS(graph, start):
-    return ["A", "B", "C", "D", "E", "F"]
+    visited = []
+    queue = [start]
+    visited_set = set([start])
+
+    while queue:
+        vertex = queue.pop(0)
+        visited.append(vertex)
+        # Obtener vecinos (lista de tuplas)
+        neighbors = graph.get(vertex, [])
+        
+        # Respetamos el orden de inserción (sin sorted)
+        for neighbor, weight in neighbors:
+            if neighbor not in visited_set:
+                visited_set.add(neighbor)
+                queue.append(neighbor)
+                
+    return visited
 
 ## Debe retornar una lista de nodos en el orden que fueron visitados.
 ## Los datos de ingreso son el grafo expresado como un diccionario {'A': {'B': 1}, 'B': {'A': 1}}
 ## y el nodo inicial como un string 'A'
+
 def DFS(graph, start):
-    return ["A", "B", "C", "D", "E", "F"]
+    visited = []
+    stack = [start]
+    visited_set = set() 
+    while stack:
+        vertex = stack.pop()
+        
+        if vertex not in visited_set:
+            visited_set.add(vertex)
+            visited.append(vertex)
+            
+            neighbors = graph.get(vertex, [])
+
+            # En DFS con pila, agregamos los vecinos en orden inverso de la lista
+            # para que el primero de la lista quede al tope de la pila (LIFO)
+            for neighbor, weight in reversed(neighbors):
+                if neighbor not in visited_set:
+                    stack.append(neighbor)
+    
+    return visited
 
 ## Debe retornar la matriz de adyacencia del grafo y luego en tupla un arreglo con los indices.
 ## Los datos de ingreso son el grafo expresado como un diccionario {'A': {'B': 1}, 'B': {'A': 1}}
