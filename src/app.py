@@ -2,6 +2,11 @@ import streamlit as st
 import networkx as nx
 import matplotlib.pyplot as plt
 import pandas as pd
+from pyvis.network import Network
+import streamlit.components.v1 as components
+import tempfile
+import os
+
 from algoritmos import *
 from modelo import Grafo
 
@@ -15,6 +20,16 @@ if 'camino_resaltado' not in st.session_state:
 
 if 'mensaje_costo' not in st.session_state:
     st.session_state.mensaje_costo = None
+
+# Paletas de colores
+PALETAS = {
+    "Azul": {"nodo": "#97c2fc", "resaltado": "#ff4d4d", "texto": "white"}, # Azul -> Rojo suave
+    "Rojo": {"nodo": "#ff9999", "resaltado": "#4d4dff", "texto": "white"}, # Rojo -> Azul fuerte
+    "Verde": {"nodo": "#99ff99", "resaltado": "#ff00ff", "texto": "black"}, # Verde -> Magenta
+    "Amarillo": {"nodo": "#ffff99", "resaltado": "#0000ff", "texto": "black"}, # Amarillo -> Azul
+    "Gris": {"nodo": "#dddddd", "resaltado": "#ff0000", "texto": "black"}, # Gris -> Rojo
+    "Naranja": {"nodo": "#ffcc99", "resaltado": "#0000ff", "texto": "black"}, # Naranja -> Azul
+}
 
 with col_izq:
     st.subheader("Ingrese el grafo a utilizar: ")
@@ -72,69 +87,105 @@ if agregar:
         st.error("Por favor ingrese los nodos en el formato correcto: 'A, B'")
 
 with col_der:
-    st.subheader("Grafo seleccionado: ")
+
+    c_header, c_color = st.columns([2, 1])
+    with c_header:
+        st.subheader("Grafo seleccionado: ")
+    with c_color:
+        color_seleccionado = st.selectbox("Color:", list(PALETAS.keys()))
+        colores = PALETAS[color_seleccionado]
 
     G = graph.obtener_datos_visuales()
-    fig, ax = plt.subplots(figsize=(8, 8))
-    
-    # Usar layout circular o spring si se prefiere
-    pos = nx.circular_layout(G)
     
     # --- LOGICA DE COLOREADO ---
     camino = st.session_state.camino_resaltado
     
-    # Colores por defecto
-    colores_nodos = []
-    colores_aristas = []
-    
-    # Definir colores de nodos
-    for node in G.nodes():
-        if node in camino:
-            colores_nodos.append('red') # Nodo en el camino
-        else:
-            colores_nodos.append('lightblue') # Nodo normal
+    try:
+        nt = Network(height="500px", width="500px", bgcolor="#ffffff", font_color="black", directed=graph.es_dirigido())
+        
+        # Añadir nodos manualmente para asegurar control
+        for node in G.nodes():
+            color_nodo = colores["resaltado"] if node in camino else colores["nodo"]
+            size_nodo = 25 if node in camino else 20
+            # shape='circle' pone la etiqueta adentro
+            # font color depende de la paleta para contraste
+            font_color = "white" if colores.get("texto") == "white" else "black"
             
-    # Definir colores de aristas
-    aristas_camino = []
-    if len(camino) > 1:
-        for i in range(len(camino) - 1):
-            aristas_camino.append((camino[i], camino[i+1]))
-            if not graph.es_dirigido(): # Si no es dirigido, agregar la inversa tambien para comparar
-                 aristas_camino.append((camino[i+1], camino[i]))
+            nt.add_node(node, label=str(node), color=color_nodo, size=size_nodo, shape='circle', 
+                        font={'color': font_color, 'size': 20, 'face': 'arial'})
 
-    for u, v in G.edges():
-        if (u, v) in aristas_camino:
-            colores_aristas.append('red')
-        else:
-            colores_aristas.append('gray')
-    
-    # Dibujar el grafo
-    nx.draw(
-        G,
-        pos,
-        ax=ax,
-        with_labels=True,
-        node_color=colores_nodos, # Usamos la lista de colores dinámica
-        node_size=800,
-        edge_color=colores_aristas, # Usamos la lista de colores dinámica
-        font_size=10,
-        font_weight='bold',
-        width=2 if not camino else [2 if c == 'red' else 1 for c in colores_aristas], # Aristas rojas mas gruesas
-    )
-    
-    es_sinpesos = all(w == 0 for u, v, w in G.edges(data='weight', default=0))
-    if not es_sinpesos :
-        etiquetas = nx.get_edge_attributes(G, 'weight')
-        nx.draw_networkx_edge_labels(G, pos, edge_labels=etiquetas, ax=ax, font_size=10, label_pos=0.3)
+        # Añadir aristas manualmente para asegurar pesos
+        aristas_camino_set = set()
+        if len(camino) > 1:
+             for i in range(len(camino) - 1):
+                 u, v = camino[i], camino[i+1]
+                 aristas_camino_set.add((u, v))
+                 if not graph.es_dirigido():
+                     aristas_camino_set.add((v, u))
 
-    fig.set_facecolor('lightgray')
-    st.pyplot(fig)
+        for u, v, data in G.edges(data=True):
+            color_arista = colores["resaltado"] if (u, v) in aristas_camino_set else 'gray'
+            width_arista = 3 if (u, v) in aristas_camino_set else 1
+            w = data.get('weight', 0)
+            label_arista = str(w) if w != 0 else ""
+            
+            nt.add_edge(u, v, color=color_arista, width=width_arista, label=label_arista)
+
+        # Opciones de física ajustadas para evitar "explosiones" y zoom excesivo
+        nt.set_options("""
+        var options = {
+          "physics": {
+            "barnesHut": {
+              "gravitationalConstant": -3000,
+              "centralGravity": 0.5,
+              "springLength": 95,
+              "springConstant": 0.04,
+              "damping": 0.09,
+              "avoidOverlap": 0.1
+            },
+            "minVelocity": 0.75,
+            "solver": "barnesHut",
+            "stabilization": {
+              "enabled": true,
+              "iterations": 1000,
+              "updateInterval": 100,
+              "onlyDynamicEdges": false,
+              "fit": true
+            }
+          },
+          "interaction": {
+            "dragNodes": true,
+            "hideEdgesOnDrag": false,
+            "hideNodesOnDrag": false,
+            "zoomView": true
+          }
+        }
+        """)
+        
+        # Guardar y mostrar
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp_file:
+            nt.save_graph(tmp_file.name)
+            tmp_file.seek(0)
+            html_content = tmp_file.read().decode('utf-8')
+            
+            html_content = html_content.replace('</head>', '<style>body, html { margin: 0; padding: 0; overflow: hidden; } #mynetwork { width: 500px; height: 500px; display: block; border: 1px solid lightgray; } canvas { display: block; }</style></head>')
+            
+        components.html(html_content, height=500, width=500, scrolling=False)
+        
+    except Exception as e:
+        st.error(f"Error al generar grafo interactivo: {e}")
+        # Fallback a matplotlib si falla algo (aunque no deberia)
+        fig, ax = plt.subplots(figsize=(8, 8))
+        pos = nx.circular_layout(G)
+        nx.draw(G, pos, ax=ax, with_labels=True)
+        st.pyplot(fig)
 
     with st.expander("Generar Grafo Aleatorio"):
         col_r1, col_r2 = st.columns(2)
         with col_r1:
             tipo_aleatorio = st.radio("Tipo:", ["Dirigido", "No dirigido"], horizontal=True)
             num_nodos = st.number_input("Nodos:", min_value=2, max_value=20, value=5)
+            con_pesos = st.checkbox("Con Pesos", value=True)
         with col_r2:
             # Max aristas
             max_edges = num_nodos * (num_nodos - 1)
@@ -142,13 +193,29 @@ with col_der:
                 max_edges //= 2
             num_aristas = st.number_input("Aristas:", min_value=num_nodos-1, max_value=max_edges, value=num_nodos)
             
+            if con_pesos:
+                c_min, c_max = st.columns(2)
+                with c_min:
+                    min_p = st.number_input("Min Peso", value=1, min_value=1)
+                with c_max:
+                    max_p = st.number_input("Max Peso", value=10, min_value=min_p)
+            else:
+                min_p, max_p = 1, 1
+            
         if st.button("Generar Aleatorio"):
             reiniciar_grafo()
             # Crear grafo nuevo
             st.session_state.graph = Grafo(dirigido = True if tipo_aleatorio == "Dirigido" else False)
             
             # Generar datos
-            datos_aleatorios = generar_grafo_aleatorio(num_nodos, num_aristas, dirigido=(tipo_aleatorio=="Dirigido"))
+            datos_aleatorios = generar_grafo_aleatorio(
+                num_nodos, 
+                num_aristas, 
+                dirigido=(tipo_aleatorio=="Dirigido"),
+                min_peso=min_p,
+                max_peso=max_p,
+                con_pesos=con_pesos
+            )
             
             # Cargar en el objeto Grafo
             for u, vecinos in datos_aleatorios.items():
@@ -168,10 +235,19 @@ if not graph.obtener_lista_adyacencia():
         st.warning("Aún no se ha agregado ninguna arista al grafo.")
 else:
     with (col_izq):
-        programs = ["Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
+        programs = ["~", "Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
         selected_Option = st.selectbox("Seleccione un programa: ", programs)
         
-        # Resetear camino si cambiamos a visualizaciones estáticas
+        # Calcular si es sin pesos para las advertencias
+        es_sinpesos = all(w == 0 for u, v, w in G.edges(data='weight', default=0))
+
+        # Resetear camino si cambiamos a visualizaciones estáticas o vacía
+        if selected_Option == "~":
+             if st.session_state.mensaje_costo or st.session_state.camino_resaltado:
+                 st.session_state.mensaje_costo = None
+                 st.session_state.camino_resaltado = []
+                 st.rerun()
+
         if selected_Option in ["Matriz de adyacencia", "Lista de adyacencia", "Matriz de incidencia"]:
              if st.session_state.camino_resaltado:
                  st.session_state.camino_resaltado = []
@@ -256,10 +332,10 @@ else:
                st.info("Dijkstra no es adecuado para grafos sin pesos.")
 
            st.markdown("""
-            **Descripción:** Encuentra el camino más corto desde un nodo origen a todos los demás en un grafo con pesos positivos.
-            - **Complejidad Temporal:** $O(E \log V)$ (usando cola de prioridad)
-            - **Complejidad Espacial:** $O(V + E)$
-            """)
+           **Descripción:** Encuentra el camino más corto desde un nodo origen a todos los demás en un grafo con pesos positivos.
+           - **Complejidad Temporal:** $O(E \log V)$ (usando cola de prioridad)
+           - **Complejidad Espacial:** $O(V + E)$
+           """)
            col_d1, col_d2 = st.columns(2)
            with col_d1:
                start_node = st.text_input("Nodo de Inicio:", "A")

@@ -4,7 +4,7 @@ Aplicación web interactiva desarrollada en Python y Streamlit para el estudio, 
 
 ## Características
 *   **Creación Dinámica**: Agrega nodos y aristas con pesos.
-*   **Visualización**: Renderizado con `networkx` y `matplotlib`.
+*   **Visualización**: Renderizado con `networkx`, `pyvis` y `matplotlib`.
 *   **Algoritmos**: BFS, DFS, Matrices de Adyacencia e Incidencia.
 
 ## Instalación
