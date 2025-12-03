@@ -13,7 +13,6 @@ def BFS(graph, start):
         nodo = cola.popleft()
         orden.append(nodo)
         
-        # graph.get(nodo, []) devuelve la lista de tuplas (vecino, peso)
         # Ordenamos los vecinos alfabéticamente para consistencia visual
         vecinos = sorted(graph.get(nodo, []), key=lambda x: x[0])
         
@@ -58,13 +57,13 @@ def matriz_adyacencia(graph):
     # Crear matriz n x n llena de ceros
     matriz = [[0] * n for _ in range(n)]
     
-    # Mapear nodo -> índice (ej: 'A' -> 0)
+    # Mapear nodo -> índice
     mapa = {nodo: i for i, nodo in enumerate(indices)}
     
     for u, vecinos in graph.items():
         for v, peso in vecinos:
             i, j = mapa[u], mapa[v]
-            matriz[i][j] = 1 # O se puede poner 'peso' si prefieres mostrar el peso
+            matriz[i][j] = 1
             
     return matriz, indices
 
@@ -78,9 +77,6 @@ def matriz_incidencia(graph):
     for u, vecinos in graph.items():
         for v, peso in vecinos:
             nodos_set.add(v)
-            # Para evitar duplicados en grafos no dirigidos, guardamos ordenado si es no dirigido
-            # Pero como tu estructura duplica aristas en no dirigido (A->B y B->A), 
-            # trataremos todo como dirigido para la matriz o filtraremos.
             # Asumiremos formato standard: cada entrada en la lista es una arista.
             aristas.append((u, v))
             
@@ -94,9 +90,7 @@ def matriz_incidencia(graph):
     for col, (u, v) in enumerate(aristas):
         fila_u = mapa[u]
         fila_v = mapa[v]
-        
-        # En incidencia: Salida = 1, Entrada = -1 (o 1 si es no dirigido, pero usaremos convención dirigida)
-        # Si u y v son iguales (bucle), es un caso especial, pero pondremos 1.
+
         matriz[fila_u][col] = 1
         matriz[fila_v][col] = -1 if u != v else 1
         
@@ -211,7 +205,7 @@ def dijkstra(grafo, inicio, fin):
     
     queue = [(0, inicio, [inicio])]
     visitados = set()
-    costos_minimos = {inicio: 0} # Para optimización
+    costos_minimos = {inicio: 0} 
 
     while queue:
         (costo, nodo_actual, camino) = heapq.heappop(queue)
@@ -243,10 +237,7 @@ def generar_grafo_aleatorio(num_nodos, num_aristas, dirigido=False, min_peso=1, 
 
     if num_nodos < 1:
         return {}
-    
-    # Generar etiquetas de nodos (A, B, C...)
-    # Si son mas de 26, usar A1, A2... o simplemente numeros si se prefiere
-    # Por simplicidad usaremos letras y luego letras dobles si es necesario
+
     etiquetas = []
     for i in range(num_nodos):
         if i < 26:
@@ -254,9 +245,7 @@ def generar_grafo_aleatorio(num_nodos, num_aristas, dirigido=False, min_peso=1, 
         else:
             etiquetas.append(f"N{i}")
             
-    # Asegurar conectividad (Arbol generador)
-    # Conectamos 0-1, 1-2, 2-3... para asegurar que no haya aislados de forma simple
-    # O mejor, un arbol aleatorio
+    # Asegurar conectividad
     aristas = set()
     nodos_conectados = {etiquetas[0]}
     nodos_disponibles = set(etiquetas[1:])
@@ -270,7 +259,7 @@ def generar_grafo_aleatorio(num_nodos, num_aristas, dirigido=False, min_peso=1, 
         nodos_disponibles.remove(v)
         
         if not dirigido:
-            aristas.add((v, u)) # Representacion interna para no dirigido suele duplicar
+            aristas.add((v, u))
             
     # Agregar aristas restantes
     aristas_actuales = len(aristas) if dirigido else len(aristas) // 2
@@ -281,7 +270,7 @@ def generar_grafo_aleatorio(num_nodos, num_aristas, dirigido=False, min_peso=1, 
         u = random.choice(etiquetas)
         v = random.choice(etiquetas)
         
-        if u == v: # Evitar bucles simples por ahora si se desea
+        if u == v: # Evitar bucles simples
             intentos += 1
             continue
             
@@ -301,12 +290,11 @@ def generar_grafo_aleatorio(num_nodos, num_aristas, dirigido=False, min_peso=1, 
     
     for u, v in aristas:
         if not dirigido and (v, u) in aristas_procesadas:
-            continue # Ya procesamos la inversa
-            
+            continue 
         if con_pesos:
             peso = random.randint(min_peso, max_peso)
         else:
-            peso = 0 # O 1, dependiendo de la logica, pero 0 suele indicar sin peso en visualizacion si se filtra
+            peso = 0
             
         grafo[u].append((v, peso))
         if not dirigido:
@@ -314,3 +302,90 @@ def generar_grafo_aleatorio(num_nodos, num_aristas, dirigido=False, min_peso=1, 
             aristas_procesadas.add((u, v))
             
     return grafo
+
+
+def bfs_componentes(graph, start, visitados):
+    """
+    Realiza un BFS para encontrar todos los nodos alcanzables desde start.
+    Retorna un conjunto de nodos que forman la componente conexa.
+    """
+    componente = set()
+    cola = deque([start])
+    visitados.add(start)
+    componente.add(start)
+    
+    while cola:
+        nodo = cola.popleft()
+        vecinos = graph.get(nodo, [])
+        for vecino, _ in vecinos:
+            if vecino not in visitados:
+                visitados.add(vecino)
+                componente.add(vecino)
+                cola.append(vecino)
+    return componente
+
+
+def obtener_componentes_conexas(graph):
+    """
+    Encuentra todas las componentes conexas de un grafo no dirigido.
+    Retorna una lista de listas, donde cada sublista contiene los nodos de una componente.
+    """
+    visitados = set()
+    componentes = []
+    
+    # Obtener todos los nodos
+    nodos = list(graph.keys())
+    
+    for nodo in nodos:
+        if nodo not in visitados:
+            comp = bfs_componentes(graph, nodo, visitados)
+            componentes.append(sorted(list(comp)))
+            
+    return componentes
+
+
+def kosaraju(graph):
+    """
+    Encuentra las Componentes Fuertemente Conexas (SCC) usando el algoritmo de Kosaraju.
+    Retorna una lista de listas de nodos.
+    """
+    # 1. DFS para obtener orden de finalización (stack)
+    visitados = set()
+    stack = []
+    
+    def dfs_fill_order(u):
+        visitados.add(u)
+        for v, _ in graph.get(u, []):
+            if v not in visitados:
+                dfs_fill_order(v)
+        stack.append(u)
+        
+    for nodo in graph:
+        if nodo not in visitados:
+            dfs_fill_order(nodo)
+            
+    # 2. Transponer el grafo (invertir aristas)
+    grafo_t = {u: [] for u in graph}
+    for u in graph:
+        for v, _ in graph[u]:
+            grafo_t[v].append((u, 0)) # Peso irrelevante para conectividad
+            
+    # 3. DFS en el grafo transpuesto siguiendo el orden inverso del stack
+    visitados.clear()
+    sccs = []
+    
+    def dfs_scc(u, current_scc):
+        visitados.add(u)
+        current_scc.append(u)
+        for v, _ in grafo_t.get(u, []):
+            if v not in visitados:
+                dfs_scc(v, current_scc)
+                
+    while stack:
+        nodo = stack.pop()
+        if nodo not in visitados:
+            componente_actual = []
+            dfs_scc(nodo, componente_actual)
+            sccs.append(sorted(componente_actual))
+            
+    return sccs
