@@ -237,7 +237,7 @@ def dijkstra(grafo, inicio, fin):
     return None, float('inf')
 
 
-def generar_grafo_aleatorio(num_nodos, num_aristas, dirigido=False):
+def generar_grafo_aleatorio(num_nodos, num_aristas, dirigido=False, min_peso=1, max_peso=10, con_pesos=True):
     import random
     import string
 
@@ -296,14 +296,18 @@ def generar_grafo_aleatorio(num_nodos, num_aristas, dirigido=False):
     # Convertir a formato de lista de adyacencia
     grafo = {nodo: [] for nodo in etiquetas}
     
-    # Asignar pesos aleatorios entre 1 y 10
+    # Asignar pesos aleatorios
     aristas_procesadas = set()
     
     for u, v in aristas:
         if not dirigido and (v, u) in aristas_procesadas:
             continue # Ya procesamos la inversa
             
-        peso = random.randint(1, 10)
+        if con_pesos:
+            peso = random.randint(min_peso, max_peso)
+        else:
+            peso = 0 # O 1, dependiendo de la logica, pero 0 suele indicar sin peso en visualizacion si se filtra
+            
         grafo[u].append((v, peso))
         if not dirigido:
             grafo[v].append((u, peso))
