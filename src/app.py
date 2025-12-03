@@ -12,8 +12,72 @@ import io
 from algoritmos import *
 from modelo import Grafo
 
-st.set_page_config(layout="wide")
-st.markdown("<h1 style='text-align: center; color: white;'>Proyecto Estructuras Computacionales.</h1> <br><br>", unsafe_allow_html=True)
+st.set_page_config(layout="wide", page_title="Proyecto Grafos")
+
+st.markdown("""
+    <style>
+        header {visibility: hidden;}
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        
+        .main-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            padding: 0.5rem 2rem;
+            z-index: 1000000; 
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            height: 3.5rem; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .main-header h1 {
+            color: white;
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        .main .block-container {
+            padding-top: 4.5rem !important;
+        }
+        
+        .streamlit-expanderHeader {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+            font-weight: 500;
+        }
+        
+        .stButton > button {
+            border-radius: 8px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .stButton > button:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+            transform: translateY(-1px);
+        }
+        
+        iframe {
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+    
+    <div class="main-header">
+        <h1>Proyecto Estructuras Computacionales</h1>
+    </div>
+""", unsafe_allow_html=True)
 col_no1, col_izq, col_cen, col_der, col_no2 = st.columns([1,3, 1, 3,1])
 
 # Inicializar variable de estado para el camino resaltado
@@ -26,6 +90,14 @@ if 'mensaje_costo' not in st.session_state:
 # Inicializar variable de estado para fullscreen
 if 'fullscreen' not in st.session_state:
     st.session_state.fullscreen = False
+
+# Inicializar selector de programa
+if 'program_selector' not in st.session_state:
+    st.session_state.program_selector = "~"
+
+# Inicializar opción previa para detectar cambios
+if 'previous_program' not in st.session_state:
+    st.session_state.previous_program = "~"
 
 # Paletas de colores
 PALETAS = {
@@ -96,7 +168,7 @@ if st.session_state.get('fullscreen', False):
     st.stop()  # Importante: detener ejecución para no mostrar el resto
 
 with col_izq:
-    st.subheader("Ingrese el grafo a utilizar: ")
+    st.markdown("### Configuración del Grafo")
 
     c1, c2, c3 = st.columns(3, vertical_alignment='bottom')
 
@@ -122,6 +194,9 @@ with col_izq:
         if 'graph' in st.session_state:
             del st.session_state.graph
         st.session_state.camino_resaltado = [] # Limpiar camino al reiniciar
+        st.session_state.mensaje_costo = None
+        st.session_state.program_selector = "~" # Resetear selector
+        st.session_state.previous_program = "~"
 
     with c2:
         if st.button("Eliminar grafo"):
@@ -140,6 +215,7 @@ with col_izq:
             index=default_index,
             on_change=reiniciar_grafo
         )
+    st.write("") 
 
     with st.expander("Gestión de Archivos"):
         # Botón de descarga centrado
@@ -236,15 +312,16 @@ if agregar:
 
 with col_der:
 
-    c_header, c_color = st.columns([2, 1])
+    c_header, c_color, c_btn = st.columns([3, 1.5, 0.5], vertical_alignment="bottom")
+
     with c_header:
         st.subheader("Grafo seleccionado: ")
+
     with c_color:
-        color_seleccionado = st.selectbox("Color:", list(PALETAS.keys()))
+        # 'label_visibility="collapsed"' oculta la etiqueta para ahorrar espacio
+        color_seleccionado = st.selectbox("Color", list(PALETAS.keys()), label_visibility="collapsed")
         colores = PALETAS[color_seleccionado]
 
-
-    # Botón de pantalla completa
     if st.button("Ver en Pantalla Completa"):
         st.session_state.fullscreen = True
         st.rerun()
@@ -304,12 +381,6 @@ with col_der:
               "onlyDynamicEdges": false,
               "fit": true
             }
-          },
-          "interaction": {
-            "dragNodes": true,
-            "hideEdgesOnDrag": false,
-            "hideNodesOnDrag": false,
-            "zoomView": true
           }
         }
         """)
@@ -384,11 +455,19 @@ with col_der:
 
 if not graph.obtener_lista_adyacencia():
     with (col_izq):
-        st.warning("Aún no se ha agregado ninguna arista al grafo.")
+        st.info("Comienza agregando aristas para construir tu grafo")
 else:
     with (col_izq):
         programs = ["~", "Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
-        selected_Option = st.selectbox("Seleccione un programa: ", programs)
+        
+        # Detectar cambio de programa para limpiar
+        if st.session_state.program_selector != st.session_state.previous_program:
+            st.session_state.mensaje_costo = None
+            st.session_state.camino_resaltado = []
+            st.session_state.previous_program = st.session_state.program_selector
+            # No hacemos rerun aquí para dejar que el flujo continúe con el nuevo programa
+            
+        selected_Option = st.selectbox("Seleccione un programa: ", programs, key="program_selector")
         
         # Calcular si es sin pesos para las advertencias
         es_sinpesos = all(w == 0 for u, v, w in G.edges(data='weight', default=0))
@@ -460,7 +539,7 @@ else:
             ]
 
             df_algo = df.style.set_table_styles(estilos_css)
-            st.table(df_algo)
+            st.dataframe(df_algo, use_container_width=True)
 
         if selected_Option == "Matriz de incidencia":
             st.header("Matriz de incidencia")
@@ -475,7 +554,7 @@ else:
             ]
 
             df_algo = df.style.set_table_styles(estilos_css)
-            st.table(df_algo)
+            st.dataframe(df_algo, use_container_width=True)
 
         if selected_Option == "Dijkstra":
            st.header("Algoritmo de Dijkstra")
