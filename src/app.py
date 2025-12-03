@@ -130,6 +130,38 @@ with col_der:
     fig.set_facecolor('lightgray')
     st.pyplot(fig)
 
+    with st.expander("Generar Grafo Aleatorio"):
+        col_r1, col_r2 = st.columns(2)
+        with col_r1:
+            tipo_aleatorio = st.radio("Tipo:", ["Dirigido", "No dirigido"], horizontal=True)
+            num_nodos = st.number_input("Nodos:", min_value=2, max_value=20, value=5)
+        with col_r2:
+            # Max aristas
+            max_edges = num_nodos * (num_nodos - 1)
+            if tipo_aleatorio == "No dirigido":
+                max_edges //= 2
+            num_aristas = st.number_input("Aristas:", min_value=num_nodos-1, max_value=max_edges, value=num_nodos)
+            
+        if st.button("Generar Aleatorio"):
+            reiniciar_grafo()
+            # Crear grafo nuevo
+            st.session_state.graph = Grafo(dirigido = True if tipo_aleatorio == "Dirigido" else False)
+            
+            # Generar datos
+            datos_aleatorios = generar_grafo_aleatorio(num_nodos, num_aristas, dirigido=(tipo_aleatorio=="Dirigido"))
+            
+            # Cargar en el objeto Grafo
+            for u, vecinos in datos_aleatorios.items():
+                 for v, peso in vecinos:
+                     if tipo_aleatorio == "Dirigido":
+                         st.session_state.graph.agregar_arista(u, v, peso)
+                     else:
+                         if u < v: 
+                             st.session_state.graph.agregar_arista(u, v, peso)
+                         elif u == v:
+                             st.session_state.graph.agregar_arista(u, v, peso)
+            st.rerun()
+
 
 if not graph.obtener_lista_adyacencia():
     with (col_izq):
