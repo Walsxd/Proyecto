@@ -13,6 +13,9 @@ col_no1, col_izq, col_cen, col_der, col_no2 = st.columns([1,3, 1, 3,1])
 if 'camino_resaltado' not in st.session_state:
     st.session_state.camino_resaltado = []
 
+if 'mensaje_costo' not in st.session_state:
+    st.session_state.mensaje_costo = None
+
 with col_izq:
     st.subheader("Ingrese el grafo a utilizar: ")
 
@@ -144,7 +147,11 @@ else:
 
         if selected_Option == "BFS":
             st.header("Búsqueda en Anchura (BFS)")
-            st.write("")
+            st.markdown("""
+            **Descripción:** Explora el grafo nivel por nivel (capas). Útil para encontrar el camino más corto en grafos no ponderados.
+            - **Complejidad Temporal:** $O(V + E)$
+            - **Complejidad Espacial:** $O(V)$
+            """)
 
             start_node = st.text_input("Nodo inicial:", "A")
             if start_node.islower() or len(start_node) != 1 or not start_node.isalpha():
@@ -156,7 +163,11 @@ else:
 
         if selected_Option == "DFS":
             st.header("Búsqueda en Profundidad (DFS)")
-            st.write("")
+            st.markdown("""
+            **Descripción:** Explora tanto como sea posible a lo largo de cada rama antes de retroceder.
+            - **Complejidad Temporal:** $O(V + E)$
+            - **Complejidad Espacial:** $O(V)$
+            """)
 
             start_node = st.text_input("Nodo inicial:", "A")
             if start_node.islower() or len(start_node) != 1 or not start_node.isalpha():
@@ -212,7 +223,11 @@ else:
            if es_sinpesos:
                st.info("Dijkstra no es adecuado para grafos sin pesos.")
 
-           st.write("Calcula la ruta más corta entre dos nodos.")
+           st.markdown("""
+            **Descripción:** Encuentra el camino más corto desde un nodo origen a todos los demás en un grafo con pesos positivos.
+            - **Complejidad Temporal:** $O(E \log V)$ (usando cola de prioridad)
+            - **Complejidad Espacial:** $O(V + E)$
+            """)
            col_d1, col_d2 = st.columns(2)
            with col_d1:
                start_node = st.text_input("Nodo de Inicio:", "A")
@@ -227,17 +242,21 @@ else:
                else:
                    camino, costo = dijkstra(datos_grafo, start_node, end_node)
                    if camino:
-                       st.success(f"¡Ruta encontrada! Costo total: {costo}")
-                       st.write(f"**Camino:** {' → '.join(camino)}")
-                       st.session_state.camino_resaltado = camino
-                       st.rerun() # Recargar para pintar
+                        st.session_state.camino_resaltado = camino
+                        st.session_state.mensaje_costo = f"¡Ruta encontrada! Costo total: {costo}"
+                        st.rerun()
                    else:
-                       st.warning("No existe un camino.")
-                       st.session_state.camino_resaltado = []
+                        st.session_state.camino_resaltado = []
+                        st.session_state.mensaje_costo = "No existe un camino entre estos nodos."
+                        st.rerun()
 
         if selected_Option == "Bellman-Ford":
             st.header("Algoritmo de Bellman-Ford")
-            st.write("")
+            st.markdown("""
+            **Descripción:** Calcula caminos más cortos y es capaz de detectar ciclos negativos. Es más lento que Dijkstra.
+            - **Complejidad Temporal:** $O(V \cdot E)$
+            - **Complejidad Espacial:** $O(V)$
+            """)
             if es_sinpesos:
                 st.info("Info: Bellman-Ford funciona, pero es lento para grafos sin pesos negativos.")
 
@@ -251,17 +270,21 @@ else:
                 else:
                     camino, costo = bellman_ford(graph.obtener_lista_adyacencia(), start_node, end_node)
                     if not camino:
-                        st.write("No existe un camino.")
                         st.session_state.camino_resaltado = []
+                        st.session_state.mensaje_costo = "No existe un camino entre estos nodos."
+                        st.rerun()
                     else:
-                        st.success(f"¡Ruta encontrada! Costo total: {costo}")
-                        st.code(" → ".join(camino), language="text")
                         st.session_state.camino_resaltado = camino
+                        st.session_state.mensaje_costo = f"¡Ruta encontrada! Costo total: {costo}"
                         st.rerun()
 
         if selected_Option == "Floyd-Warshall":
             st.header("Algoritmo de Floyd-Warshall")
-            st.write("")
+            st.markdown("""
+            **Descripción:** Programación dinámica para encontrar caminos más cortos entre **todos** los pares de nodos.
+            - **Complejidad Temporal:** $O(V^3)$
+            - **Complejidad Espacial:** $O(V^2)$
+            """)
             
             datos_grafo = graph.obtener_lista_adyacencia()
             start_node = st.text_input("Nodo inicial:", "A", key="floyd_start")
@@ -273,11 +296,19 @@ else:
                 else:
                     camino, costo = floyd_warshall(graph.obtener_lista_adyacencia(), start_node, end_node)
                     if not camino:
-                        st.write("No existe un camino.")
                         st.session_state.camino_resaltado = []
+                        st.session_state.mensaje_costo = "No existe un camino entre estos nodos."
+                        st.rerun()
                     else:
-                        st.success(f"¡Ruta encontrada! Costo total: {costo}")
-                        st.code(" → ".join(camino), language="text")
                         st.session_state.camino_resaltado = camino
+                        st.session_state.mensaje_costo = f"¡Ruta encontrada! Costo total: {costo}"
                         st.rerun()
 
+        if st.session_state.mensaje_costo:
+            st.write("---")
+            if "No existe" in st.session_state.mensaje_costo:
+                st.warning(st.session_state.mensaje_costo)
+            else:
+                st.success(st.session_state.mensaje_costo)
+                if st.session_state.camino_resaltado:
+                    st.write(f"**Camino:** {' → '.join(st.session_state.camino_resaltado)}")
