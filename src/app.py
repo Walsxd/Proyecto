@@ -84,6 +84,9 @@ col_no1, col_izq, col_cen, col_der, col_no2 = st.columns([1,3, 1, 3,1])
 if 'camino_resaltado' not in st.session_state:
     st.session_state.camino_resaltado = []
 
+if 'aristas_resaltadas' not in st.session_state:
+    st.session_state.aristas_resaltadas = []
+
 if 'mensaje_costo' not in st.session_state:
     st.session_state.mensaje_costo = None
 
@@ -134,7 +137,15 @@ if st.session_state.get('fullscreen', False):
                             font={'color': 'white', 'size': 24, 'face': 'arial'})
 
             aristas_camino_set_fs = set()
-            if len(camino_fs) > 1:
+            
+            # Prioridad a aristas_resaltadas (MST, etc)
+            if 'aristas_resaltadas' in st.session_state and st.session_state.aristas_resaltadas:
+                for u, v in st.session_state.aristas_resaltadas:
+                    aristas_camino_set_fs.add((u, v))
+                    if not graph_fs.es_dirigido():
+                        aristas_camino_set_fs.add((v, u))
+            # Si no, usar camino_resaltado (Dijkstra, BFS, etc)
+            elif len(camino_fs) > 1:
                  for i in range(len(camino_fs) - 1):
                      u, v = camino_fs[i], camino_fs[i+1]
                      aristas_camino_set_fs.add((u, v))
@@ -194,6 +205,7 @@ with col_izq:
         if 'graph' in st.session_state:
             del st.session_state.graph
         st.session_state.camino_resaltado = [] # Limpiar camino al reiniciar
+        st.session_state.aristas_resaltadas = [] # Limpiar aristas
         st.session_state.mensaje_costo = None
         st.session_state.program_selector = "~" # Resetear selector
         st.session_state.previous_program = "~"
@@ -345,7 +357,15 @@ with col_der:
 
         # Añadir aristas manualmente para asegurar pesos
         aristas_camino_set = set()
-        if len(camino) > 1:
+        
+        # Prioridad a aristas_resaltadas (MST, etc)
+        if 'aristas_resaltadas' in st.session_state and st.session_state.aristas_resaltadas:
+            for u, v in st.session_state.aristas_resaltadas:
+                aristas_camino_set.add((u, v))
+                if not graph.es_dirigido():
+                    aristas_camino_set.add((v, u))
+        # Si no, usar camino_resaltado (Dijkstra, BFS, etc)
+        elif len(camino) > 1:
              for i in range(len(camino) - 1):
                  u, v = camino[i], camino[i+1]
                  aristas_camino_set.add((u, v))
@@ -464,6 +484,7 @@ else:
         if st.session_state.program_selector != st.session_state.previous_program:
             st.session_state.mensaje_costo = None
             st.session_state.camino_resaltado = []
+            st.session_state.aristas_resaltadas = []
             st.session_state.previous_program = st.session_state.program_selector
             # No hacemos rerun aquí para dejar que el flujo continúe con el nuevo programa
             
@@ -613,13 +634,15 @@ else:
                         st.write(f"{u} - {v} : {p}")
                         
                     # Resaltar en el grafo
-                    camino_mst = []
+                    aristas_mst = []
+                    nodos_mst = set()
                     for u, v, p in mst:
-                        camino_mst.append(u)
-                        camino_mst.append(v)
-                    # Esto solo resalta nodos, para aristas necesitaríamos lógica en la visualización
-                    # Por ahora usamos el resaltado de nodos que ya tenemos, aunque sea imperfecto para aristas
-                    st.session_state.camino_resaltado = list(set(camino_mst)) 
+                        aristas_mst.append((u, v))
+                        nodos_mst.add(u)
+                        nodos_mst.add(v)
+                    
+                    st.session_state.aristas_resaltadas = aristas_mst
+                    # st.session_state.camino_resaltado = list(nodos_mst) # No resaltar nodos para MST, solo aristas
 
         if selected_Option == "Prim (MST)":
             st.header("Árbol de Expansión Mínima (Prim)")
@@ -643,11 +666,15 @@ else:
                         for u, v, p in mst:
                             st.write(f"{u} - {v} : {p}")
 
-                        camino_mst = []
+                        aristas_mst = []
+                        nodos_mst = set()
                         for u, v, p in mst:
-                            camino_mst.append(u)
-                            camino_mst.append(v)
-                        st.session_state.camino_resaltado = list(set(camino_mst))
+                            aristas_mst.append((u, v))
+                            nodos_mst.add(u)
+                            nodos_mst.add(v)
+
+                        st.session_state.aristas_resaltadas = aristas_mst
+                        # st.session_state.camino_resaltado = list(nodos_mst) # No resaltar nodos para MST, solo aristas
 
 
 
