@@ -6,6 +6,7 @@ from pyvis.network import Network
 import streamlit.components.v1 as components
 import tempfile
 import os
+import json
 
 from algoritmos import *
 from modelo import Grafo
@@ -65,11 +66,60 @@ with col_izq:
                 reiniciar_grafo()
                 st.rerun()
     with c1:
+        # Determinar índice por defecto basado en el grafo actual
+        default_index = 0
+        if 'graph' in st.session_state:
+            default_index = 0 if st.session_state.graph.es_dirigido() else 1
+
         tipo = st.selectbox(
             "Tipo de grafo: ",
             ["Dirigido", "No dirigido"],
+            index=default_index,
             on_change=reiniciar_grafo
         )
+
+    with st.expander("Gestión de Archivos"):
+        # Botón de descarga centrado
+        if 'graph' in st.session_state:
+            grafo_dict = st.session_state.graph.to_dict()
+            json_str = json.dumps(grafo_dict, indent=2)
+            st.download_button(
+                label="Descargar Grafo Actual (JSON)",
+                data=json_str,
+                file_name="grafo.json",
+                mime="application/json",
+                use_container_width=True
+            )
+        
+        st.markdown("---")
+        st.write("**Cargar Grafo desde Archivo:**")
+        
+        # Carga de archivo
+        uploaded_file = st.file_uploader(
+            "Arrastra y suelta tu archivo JSON aquí", 
+            type=["json"], 
+            label_visibility="visible"
+        )
+        
+        if uploaded_file is not None:
+            # Evitar recargas infinitas comprobando si es el mismo archivo
+            if 'last_uploaded_file' not in st.session_state or st.session_state.last_uploaded_file != uploaded_file.name:
+                try:
+                    data = json.load(uploaded_file)
+                    # Validar estructura básica
+                    if "nodos" in data and "aristas" in data:
+                        reiniciar_grafo()
+                        st.session_state.graph = Grafo.from_dict(data)
+                        
+                        # Actualizamos el archivo cargado
+                        st.session_state.last_uploaded_file = uploaded_file.name
+                        
+                        st.success("¡Grafo cargado correctamente!")
+                        st.rerun()
+                    else:
+                        st.error("El archivo no tiene el formato correcto (faltan nodos o aristas).")
+                except Exception as e:
+                    st.error(f"Error al leer archivo: {e}")
 
 if 'graph' not in st.session_state:
     st.session_state.graph = Grafo(dirigido = True if tipo == "Dirigido" else False)
