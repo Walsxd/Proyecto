@@ -235,3 +235,78 @@ def dijkstra(grafo, inicio, fin):
                     heapq.heappush(queue, (nuevo_costo, vecino, nuevo_camino))
 
     return None, float('inf')
+
+
+def generar_grafo_aleatorio(num_nodos, num_aristas, dirigido=False):
+    import random
+    import string
+
+    if num_nodos < 1:
+        return {}
+    
+    # Generar etiquetas de nodos (A, B, C...)
+    # Si son mas de 26, usar A1, A2... o simplemente numeros si se prefiere
+    # Por simplicidad usaremos letras y luego letras dobles si es necesario
+    etiquetas = []
+    for i in range(num_nodos):
+        if i < 26:
+            etiquetas.append(string.ascii_uppercase[i])
+        else:
+            etiquetas.append(f"N{i}")
+            
+    # Asegurar conectividad (Arbol generador)
+    # Conectamos 0-1, 1-2, 2-3... para asegurar que no haya aislados de forma simple
+    # O mejor, un arbol aleatorio
+    aristas = set()
+    nodos_conectados = {etiquetas[0]}
+    nodos_disponibles = set(etiquetas[1:])
+    
+    while nodos_disponibles:
+        u = random.choice(list(nodos_conectados))
+        v = random.choice(list(nodos_disponibles))
+        
+        aristas.add((u, v))
+        nodos_conectados.add(v)
+        nodos_disponibles.remove(v)
+        
+        if not dirigido:
+            aristas.add((v, u)) # Representacion interna para no dirigido suele duplicar
+            
+    # Agregar aristas restantes
+    aristas_actuales = len(aristas) if dirigido else len(aristas) // 2
+    intentos = 0
+    max_intentos = num_nodos * num_nodos * 2 # Evitar bucle infinito
+    
+    while aristas_actuales < num_aristas and intentos < max_intentos:
+        u = random.choice(etiquetas)
+        v = random.choice(etiquetas)
+        
+        if u == v: # Evitar bucles simples por ahora si se desea
+            intentos += 1
+            continue
+            
+        if (u, v) not in aristas:
+            aristas.add((u, v))
+            if not dirigido:
+                aristas.add((v, u))
+            aristas_actuales += 1
+        else:
+            intentos += 1
+            
+    # Convertir a formato de lista de adyacencia
+    grafo = {nodo: [] for nodo in etiquetas}
+    
+    # Asignar pesos aleatorios entre 1 y 10
+    aristas_procesadas = set()
+    
+    for u, v in aristas:
+        if not dirigido and (v, u) in aristas_procesadas:
+            continue # Ya procesamos la inversa
+            
+        peso = random.randint(1, 10)
+        grafo[u].append((v, peso))
+        if not dirigido:
+            grafo[v].append((u, peso))
+            aristas_procesadas.add((u, v))
+            
+    return grafo
