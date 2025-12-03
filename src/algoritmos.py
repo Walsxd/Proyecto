@@ -235,4 +235,3 @@ def dijkstra(grafo, inicio, fin):
                     heapq.heappush(queue, (nuevo_costo, vecino, nuevo_camino))
 
     return None, float('inf')
-
