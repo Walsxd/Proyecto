@@ -7,6 +7,7 @@ import streamlit.components.v1 as components
 import tempfile
 import os
 import json
+import io
 
 from algoritmos import *
 from modelo import Grafo
@@ -22,6 +23,10 @@ if 'camino_resaltado' not in st.session_state:
 if 'mensaje_costo' not in st.session_state:
     st.session_state.mensaje_costo = None
 
+# Inicializar variable de estado para fullscreen
+if 'fullscreen' not in st.session_state:
+    st.session_state.fullscreen = False
+
 # Paletas de colores
 PALETAS = {
     "Azul": {"nodo": "#97c2fc", "resaltado": "#ff4d4d", "texto": "white"}, # Azul -> Rojo suave
@@ -31,6 +36,64 @@ PALETAS = {
     "Gris": {"nodo": "#dddddd", "resaltado": "#ff0000", "texto": "black"}, # Gris -> Rojo
     "Naranja": {"nodo": "#ffcc99", "resaltado": "#0000ff", "texto": "black"}, # Naranja -> Azul
 }
+
+
+# Modo Pantalla Completa
+if st.session_state.get('fullscreen', False):
+    if st.button("Salir de Pantalla Completa"):
+        st.session_state.fullscreen = False
+        st.rerun()
+    
+    # Asegurarse de que existe el grafo
+    if 'graph' in st.session_state:
+        graph_fs = st.session_state.graph
+        G_fs = graph_fs.obtener_datos_visuales()
+        camino_fs = st.session_state.camino_resaltado
+        
+        # Usar colores por defecto
+        colores_fs = PALETAS["Azul"]
+        
+        try:
+            nt_fs = Network(height="800px", width="100%", bgcolor="#ffffff", font_color="black", directed=graph_fs.es_dirigido())
+            
+            for node in G_fs.nodes():
+                color_nodo = colores_fs["resaltado"] if node in camino_fs else colores_fs["nodo"]
+                nt_fs.add_node(node, label=str(node), color=color_nodo, size=30, shape='circle', 
+                            font={'color': 'white', 'size': 24, 'face': 'arial'})
+
+            aristas_camino_set_fs = set()
+            if len(camino_fs) > 1:
+                 for i in range(len(camino_fs) - 1):
+                     u, v = camino_fs[i], camino_fs[i+1]
+                     aristas_camino_set_fs.add((u, v))
+                     if not graph_fs.es_dirigido():
+                         aristas_camino_set_fs.add((v, u))
+
+            for u, v, data in G_fs.edges(data=True):
+                color_arista = colores_fs["resaltado"] if (u, v) in aristas_camino_set_fs else 'gray'
+                width_arista = 4 if (u, v) in aristas_camino_set_fs else 2
+                w = data.get('weight', 0)
+                label_arista = str(w) if w != 0 else ""
+                nt_fs.add_edge(u, v, color=color_arista, width=width_arista, label=label_arista)
+
+            nt_fs.set_options("""
+            var options = {
+              "physics": {"barnesHut": {"gravitationalConstant": -3000, "centralGravity": 0.3, "springLength": 150}},
+              "interaction": {"dragNodes": true, "zoomView": true}
+            }
+            """)
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp_file:
+                nt_fs.save_graph(tmp_file.name)
+                tmp_file.seek(0)
+                html_content = tmp_file.read().decode('utf-8')
+                
+            components.html(html_content, height=800, scrolling=False)
+            
+        except Exception as e:
+            st.error(f"Error al generar grafo: {e}")
+    
+    st.stop()  # Importante: detener ejecución para no mostrar el resto
 
 with col_izq:
     st.subheader("Ingrese el grafo a utilizar: ")
@@ -121,6 +184,41 @@ with col_izq:
                 except Exception as e:
                     st.error(f"Error al leer archivo: {e}")
 
+        # Exportar Imagen PNG
+        if 'graph' in st.session_state:
+            st.markdown("---")
+            st.write("**Exportar Imagen:**")
+            
+            try:
+                G_export = st.session_state.graph.obtener_datos_visuales()
+                fig, ax = plt.subplots(figsize=(10, 10), dpi=100)
+                
+                pos = nx.circular_layout(G_export)
+                nx.draw_networkx_nodes(G_export, pos, ax=ax, node_size=700, node_color='#97c2fc', edgecolors='black')
+                nx.draw_networkx_labels(G_export, pos, ax=ax, font_size=12, font_family="sans-serif")
+                nx.draw_networkx_edges(G_export, pos, ax=ax, edge_color='gray', width=1.5, arrowsize=20)
+                
+                # Dibujar pesos de aristas
+                edge_labels = nx.get_edge_attributes(G_export, 'weight')
+                nx.draw_networkx_edge_labels(G_export, pos, edge_labels=edge_labels, font_size=10)
+                
+                plt.axis('off')
+                
+                buf = io.BytesIO()
+                plt.savefig(buf, format="png", bbox_inches='tight', pad_inches=0.1)
+                buf.seek(0)
+                
+                st.download_button(
+                    label="Descargar Imagen (PNG)",
+                    data=buf,
+                    file_name="grafo.png",
+                    mime="image/png",
+                    use_container_width=True
+                )
+                plt.close(fig)
+            except Exception as e:
+                st.error(f"Error al generar imagen: {e}")
+
 if 'graph' not in st.session_state:
     st.session_state.graph = Grafo(dirigido = True if tipo == "Dirigido" else False)
 graph = st.session_state.graph
@@ -145,6 +243,12 @@ with col_der:
         color_seleccionado = st.selectbox("Color:", list(PALETAS.keys()))
         colores = PALETAS[color_seleccionado]
 
+
+    # Botón de pantalla completa
+    if st.button("Ver en Pantalla Completa"):
+        st.session_state.fullscreen = True
+        st.rerun()
+
     G = graph.obtener_datos_visuales()
     
     # --- LOGICA DE COLOREADO ---
@@ -157,8 +261,6 @@ with col_der:
         for node in G.nodes():
             color_nodo = colores["resaltado"] if node in camino else colores["nodo"]
             size_nodo = 25 if node in camino else 20
-            # shape='circle' pone la etiqueta adentro
-            # font color depende de la paleta para contraste
             font_color = "white" if colores.get("texto") == "white" else "black"
             
             nt.add_node(node, label=str(node), color=color_nodo, size=size_nodo, shape='circle', 
