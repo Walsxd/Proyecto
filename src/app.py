@@ -458,7 +458,7 @@ if not graph.obtener_lista_adyacencia():
         st.info("Comienza agregando aristas para construir tu grafo")
 else:
     with (col_izq):
-        programs = ["~", "Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","Componentes Conexas","BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
+        programs = ["~", "Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","Componentes Conexas", "Es Árbol?", "Kruskal (MST)", "Prim (MST)", "BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
         
         # Detectar cambio de programa para limpiar
         if st.session_state.program_selector != st.session_state.previous_program:
@@ -576,6 +576,79 @@ else:
                 
             # Opcional: Colorear componentes (si se desea en el futuro)
             # Por ahora solo mostramos la lista textual como se acordó.
+
+
+        if selected_Option == "Es Árbol?":
+            st.header("Validación de Árbol")
+            datos_grafo = graph.obtener_lista_adyacencia()
+            es_dirigido = graph.es_dirigido()
+            
+            es_arbol_val, razon = es_arbol(datos_grafo, es_dirigido)
+            
+            if es_arbol_val:
+                st.success(f"✅ {razon}")
+            else:
+                st.error(f"❌ {razon}")
+                
+        if selected_Option == "Kruskal (MST)":
+            st.header("Árbol de Expansión Mínima (Kruskal)")
+            datos_grafo = graph.obtener_lista_adyacencia()
+            es_dirigido = graph.es_dirigido()
+            
+            if es_dirigido:
+                st.warning("El algoritmo de Kruskal está diseñado para grafos no dirigidos.")
+            else:
+                # Verificar conectividad primero
+                es_valido, _ = es_arbol(datos_grafo, es_dirigido)
+                # Un MST existe si el grafo es conexo (aunque es_arbol pide que no haya ciclos, Kruskal funciona en cualquier conexo para dar un árbol)
+                # Relajamos la condición: solo necesitamos que sea conexo.
+                comp = obtener_componentes_conexas(datos_grafo)
+                if len(comp) > 1:
+                    st.error("El grafo no es conexo. No existe un MST único (sería un bosque).")
+                else:
+                    mst, peso_total = kruskal(datos_grafo)
+                    st.write(f"**Peso Total del MST:** {peso_total}")
+                    st.write("**Aristas del MST:**")
+                    for u, v, p in mst:
+                        st.write(f"{u} - {v} : {p}")
+                        
+                    # Resaltar en el grafo
+                    camino_mst = []
+                    for u, v, p in mst:
+                        camino_mst.append(u)
+                        camino_mst.append(v)
+                    # Esto solo resalta nodos, para aristas necesitaríamos lógica en la visualización
+                    # Por ahora usamos el resaltado de nodos que ya tenemos, aunque sea imperfecto para aristas
+                    st.session_state.camino_resaltado = list(set(camino_mst)) 
+
+        if selected_Option == "Prim (MST)":
+            st.header("Árbol de Expansión Mínima (Prim)")
+            datos_grafo = graph.obtener_lista_adyacencia()
+            es_dirigido = graph.es_dirigido()
+            
+            if es_dirigido:
+                st.warning("El algoritmo de Prim está diseñado para grafos no dirigidos.")
+            else:
+                comp = obtener_componentes_conexas(datos_grafo)
+                if len(comp) > 1:
+                    st.error("El grafo no es conexo. Prim necesita un grafo conexo.")
+                else:
+                    start_node = st.text_input("Nodo inicial para Prim:", "A")
+                    if start_node not in datos_grafo:
+                         st.error("Nodo no válido.")
+                    else:
+                        mst, peso_total = prim(datos_grafo, start_node)
+                        st.write(f"**Peso Total del MST:** {peso_total}")
+                        st.write("**Aristas del MST:**")
+                        for u, v, p in mst:
+                            st.write(f"{u} - {v} : {p}")
+
+                        camino_mst = []
+                        for u, v, p in mst:
+                            camino_mst.append(u)
+                            camino_mst.append(v)
+                        st.session_state.camino_resaltado = list(set(camino_mst))
+
 
 
         if selected_Option == "Dijkstra":

@@ -389,3 +389,129 @@ def kosaraju(graph):
             sccs.append(sorted(componente_actual))
             
     return sccs
+
+
+class UnionFind:
+    def __init__(self, elements):
+        self.parent = {e: e for e in elements}
+        self.rank = {e: 0 for e in elements}
+
+    def find(self, item):
+        if self.parent[item] != item:
+            self.parent[item] = self.find(self.parent[item])
+        return self.parent[item]
+
+    def union(self, item1, item2):
+        root1 = self.find(item1)
+        root2 = self.find(item2)
+
+        if root1 != root2:
+            if self.rank[root1] < self.rank[root2]:
+                self.parent[root1] = root2
+            elif self.rank[root1] > self.rank[root2]:
+                self.parent[root2] = root1
+            else:
+                self.parent[root2] = root1
+                self.rank[root1] += 1
+            return True
+        return False
+
+
+def es_arbol(graph, es_dirigido=False):
+    """
+    Determina si un grafo es un árbol.
+    Condiciones:
+    1. No dirigido (aunque se puede adaptar, la definición clásica es para no dirigidos).
+    2. Conexo.
+    3. Sin ciclos (implícito si es conexo y |E| = |V| - 1).
+    4. |E| = |V| - 1.
+    """
+    if es_dirigido:
+        return False, "Los árboles (en este contexto) son grafos no dirigidos."
+    
+    nodos = list(graph.keys())
+    if not nodos:
+        return True, "Grafo vacío es trivialmente un árbol (o bosque vacío)."
+        
+    # Verificar conectividad
+    visitados = set()
+    comp = bfs_componentes(graph, nodos[0], visitados)
+    if len(comp) != len(nodos):
+        return False, "El grafo no es conexo."
+        
+    # Contar aristas
+    num_aristas = 0
+    for u in graph:
+        num_aristas += len(graph[u])
+    
+    # En representación de lista de adyacencia para no dirigido, cada arista aparece 2 veces
+    num_aristas //= 2
+    
+    if num_aristas != len(nodos) - 1:
+        return False, f"Número de aristas incorrecto. Tiene {num_aristas}, debería tener {len(nodos) - 1}."
+        
+    return True, "Es un árbol."
+
+
+def kruskal(graph):
+    """
+    Algoritmo de Kruskal para MST.
+    Retorna (aristas_mst, peso_total).
+    aristas_mst es una lista de tuplas (u, v, peso).
+    """
+    # Recolectar todas las aristas
+    aristas = []
+    procesados = set()
+    
+    for u in graph:
+        for v, peso in graph[u]:
+            # Ordenar para evitar duplicados en no dirigido
+            edge = tuple(sorted((u, v)))
+            if edge not in procesados:
+                aristas.append((u, v, peso))
+                procesados.add(edge)
+                
+    # Ordenar por peso
+    aristas.sort(key=lambda x: x[2])
+    
+    uf = UnionFind(graph.keys())
+    mst = []
+    peso_total = 0
+    
+    for u, v, peso in aristas:
+        if uf.union(u, v):
+            mst.append((u, v, peso))
+            peso_total += peso
+            
+    return mst, peso_total
+
+
+def prim(graph, start_node):
+    """
+    Algoritmo de Prim para MST.
+    Retorna (aristas_mst, peso_total).
+    """
+    import heapq
+    
+    mst = []
+    peso_total = 0
+    visitados = set([start_node])
+    
+    # Cola de prioridad: (peso, u, v) -> arista de u a v con peso
+    edges = []
+    for v, peso in graph.get(start_node, []):
+        heapq.heappush(edges, (peso, start_node, v))
+        
+    while edges:
+        peso, u, v = heapq.heappop(edges)
+        
+        if v not in visitados:
+            visitados.add(v)
+            mst.append((u, v, peso))
+            peso_total += peso
+            
+            for next_v, next_peso in graph.get(v, []):
+                if next_v not in visitados:
+                    heapq.heappush(edges, (next_peso, v, next_v))
+                    
+    return mst, peso_total
