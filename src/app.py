@@ -458,7 +458,7 @@ if not graph.obtener_lista_adyacencia():
         st.info("Comienza agregando aristas para construir tu grafo")
 else:
     with (col_izq):
-        programs = ["~", "Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
+        programs = ["~", "Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","Componentes Conexas","BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
         
         # Detectar cambio de programa para limpiar
         if st.session_state.program_selector != st.session_state.previous_program:
@@ -555,6 +555,28 @@ else:
 
             df_algo = df.style.set_table_styles(estilos_css)
             st.dataframe(df_algo, use_container_width=True)
+
+        if selected_Option == "Componentes Conexas":
+            st.header("Componentes Conexas")
+            
+            datos_grafo = graph.obtener_lista_adyacencia()
+            es_dirigido = graph.es_dirigido()
+            
+            if es_dirigido:
+                st.markdown("**Grafo Dirigido:** Buscando Componentes Fuertemente Conexas (SCC) usando Kosaraju.")
+                componentes = kosaraju(datos_grafo)
+            else:
+                st.markdown("**Grafo No Dirigido:** Buscando Componentes Conexas.")
+                componentes = obtener_componentes_conexas(datos_grafo)
+                
+            st.write(f"**Número de componentes encontradas:** {len(componentes)}")
+            
+            for i, comp in enumerate(componentes):
+                st.write(f"**Componente {i+1}:** {', '.join(comp)}")
+                
+            # Opcional: Colorear componentes (si se desea en el futuro)
+            # Por ahora solo mostramos la lista textual como se acordó.
+
 
         if selected_Option == "Dijkstra":
            st.header("Algoritmo de Dijkstra")
