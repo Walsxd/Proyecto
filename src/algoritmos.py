@@ -515,3 +515,145 @@ def prim(graph, start_node):
                     heapq.heappush(edges, (next_peso, v, next_v))
                     
     return mst, peso_total
+
+def es_bipartito(grafo):
+    """
+    Determina si un grafo es bipartito usando BFS (2-coloreado).
+    Retorna (bool, set_a, set_b).
+    """
+    color = {} # Nodo -> 0 o 1
+    set_a = set()
+    set_b = set()
+    
+    # Iterar sobre todos los nodos para manejar grafos desconectados
+    for nodo in grafo:
+        if nodo not in color:
+            # Iniciar BFS desde este nodo no visitado
+            queue = deque([nodo])
+            color[nodo] = 0
+            set_a.add(nodo)
+            
+            while queue:
+                u = queue.popleft()
+                
+                # Obtener vecinos
+                vecinos = []
+                if u in grafo:
+                    for v_info in grafo[u]:
+                        # v_info puede ser (vecino, peso) o solo vecino si cambiamos la estructura, 
+                        # pero asumimos (vecino, peso) como en el resto del proyecto
+                        vecinos.append(v_info[0])
+                
+                for v in vecinos:
+                    if v not in color:
+                        color[v] = 1 - color[u]
+                        if color[v] == 0:
+                            set_a.add(v)
+                        else:
+                            set_b.add(v)
+                        queue.append(v)
+                    elif color[v] == color[u]:
+                        return False, set(), set()
+                        
+    return True, set_a, set_b
+
+
+def matching_maximal(grafo):
+    """
+    Encuentra un matching maximal usando un enfoque voraz (greedy).
+    Retorna una lista de tuplas (u, v) que representan las aristas del matching.
+    """
+    matching = []
+    nodos_cubiertos = set()
+    
+    # Iterar sobre todas las aristas
+    # Asumimos que grafo es una lista de adyacencia {u: [(v, w), ...]}
+    # Para evitar duplicados en no dirigidos, ordenamos la arista
+    aristas_procesadas = set()
+    
+    for u in grafo:
+        for v, _ in grafo[u]:
+            edge = tuple(sorted((u, v)))
+            if edge in aristas_procesadas:
+                continue
+            aristas_procesadas.add(edge)
+            
+            if u not in nodos_cubiertos and v not in nodos_cubiertos:
+                matching.append((u, v))
+                nodos_cubiertos.add(u)
+                nodos_cubiertos.add(v)
+                
+    return matching
+
+
+def hopcroft_karp(grafo):
+    """
+    Encuentra el matching máximo en un grafo bipartito usando el algoritmo de Hopcroft-Karp.
+    Retorna (es_bipartito, matching).
+    matching es una lista de tuplas (u, v).
+    """
+    # 1. Verificar si es bipartito
+    es_bip, set_a, set_b = es_bipartito(grafo)
+    if not es_bip:
+        return False, []
+    
+    # Convertir set_a y set_b a listas para indexación si fuera necesario, 
+    # pero trabajaremos con diccionarios
+    
+    # Pair_U: emparejamiento para nodos en U (Set A) -> nodo en V
+    # Pair_V: emparejamiento para nodos en V (Set B) -> nodo en U
+    # dist: distancias para BFS
+    
+    pair_u = {u: None for u in set_a}
+    pair_v = {v: None for v in set_b}
+    dist = {}
+    
+    def bfs():
+        queue = deque()
+        for u in set_a:
+            if pair_u[u] is None:
+                dist[u] = 0
+                queue.append(u)
+            else:
+                dist[u] = float('inf')
+                
+        dist[None] = float('inf')
+        
+        while queue:
+            u = queue.popleft()
+            if dist[u] < dist[None]:
+                # Iterar vecinos de u (que están en V)
+                for v_info in grafo.get(u, []):
+                    v = v_info[0]
+                    if dist.get(pair_v[v], float('inf')) == float('inf'):
+                        dist[pair_v[v]] = dist[u] + 1
+                        queue.append(pair_v[v])
+        return dist[None] != float('inf')
+    
+    def dfs(u):
+        if u is not None:
+            for v_info in grafo.get(u, []):
+                v = v_info[0]
+                if dist.get(pair_v[v]) == dist[u] + 1:
+                    if dfs(pair_v[v]):
+                        pair_v[v] = u
+                        pair_u[u] = v
+                        return True
+            dist[u] = float('inf')
+            return False
+        return True
+    
+    matching_size = 0
+    while bfs():
+        for u in set_a:
+            if pair_u[u] is None:
+                if dfs(u):
+                    matching_size += 1
+                    
+    # Construir lista de aristas
+    matching_edges = []
+    for u, v in pair_u.items():
+        if v is not None:
+            matching_edges.append((u, v))
+            
+    return True, matching_edges
