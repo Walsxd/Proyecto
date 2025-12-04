@@ -357,7 +357,7 @@ if not graph.obtener_lista_adyacencia():
         st.info("Comienza agregando aristas para construir tu grafo")
 else:
     with (col_izq):
-        programs = ["~", "Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","Componentes Conexas", "Es Árbol?", "Es Bipartito?", "Kruskal (MST)", "Prim (MST)", "BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
+        programs = ["~", "Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","Componentes Conexas", "Es Árbol?", "Es Bipartito?", "Pareo (Matching)", "Kruskal (MST)", "Prim (MST)", "BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
         
         # Detectar cambio de programa para limpiar
         if st.session_state.program_selector != st.session_state.previous_program:
@@ -517,6 +517,33 @@ else:
             else:
                 st.error("❌ El grafo NO es bipartito.")
                 
+        if selected_Option == "Pareo (Matching)":
+            st.header("Pareo (Matching)")
+            datos_grafo = graph.obtener_lista_adyacencia()
+            
+            tipo_pareo = st.radio("Tipo de Pareo:", ["Maximal (Greedy)", "Máximo (Hopcroft-Karp)"])
+            
+            if tipo_pareo == "Maximal (Greedy)":
+                matching = matching_maximal(datos_grafo)
+                st.write(f"**Tamaño del Matching:** {len(matching)}")
+                st.write("**Aristas del Matching:**")
+                for u, v in matching:
+                    st.write(f"{u} - {v}")
+                
+                st.session_state.aristas_resaltadas = matching
+                
+            else: # Máximo (Hopcroft-Karp)
+                es_bip, matching = hopcroft_karp(datos_grafo)
+                if not es_bip:
+                    st.error("Hopcroft-Karp requiere un grafo bipartito.")
+                else:
+                    st.write(f"**Tamaño del Matching Máximo:** {len(matching)}")
+                    st.write("**Aristas del Matching:**")
+                    for u, v in matching:
+                        st.write(f"{u} - {v}")
+                    
+                    st.session_state.aristas_resaltadas = matching
+
         if selected_Option == "Kruskal (MST)":
             st.header("Árbol de Expansión Mínima (Kruskal)")
             datos_grafo = graph.obtener_lista_adyacencia()
