@@ -87,6 +87,9 @@ if 'camino_resaltado' not in st.session_state:
 if 'aristas_resaltadas' not in st.session_state:
     st.session_state.aristas_resaltadas = []
 
+if 'colores_nodos' not in st.session_state:
+    st.session_state.colores_nodos = {}
+
 if 'mensaje_costo' not in st.session_state:
     st.session_state.mensaje_costo = None
 
@@ -102,6 +105,10 @@ if 'program_selector' not in st.session_state:
 if 'previous_program' not in st.session_state:
     st.session_state.previous_program = "~"
 
+# Inicializar selector de color
+if 'selector_color' not in st.session_state:
+    st.session_state.selector_color = "Azul"
+
 # Paletas de colores
 PALETAS = {
     "Azul": {"nodo": "#97c2fc", "resaltado": "#ff4d4d", "texto": "white"}, # Azul -> Rojo suave
@@ -110,6 +117,18 @@ PALETAS = {
     "Amarillo": {"nodo": "#ffff99", "resaltado": "#0000ff", "texto": "black"}, # Amarillo -> Azul
     "Gris": {"nodo": "#dddddd", "resaltado": "#ff0000", "texto": "black"}, # Gris -> Rojo
     "Naranja": {"nodo": "#ffcc99", "resaltado": "#0000ff", "texto": "black"}, # Naranja -> Azul
+}
+
+OPCIONES_COLOR = ["Azul", "Rojo", "Verde", "Amarillo", "Gris", "Naranja"]
+
+# Colores suaves para Bipartito (Set A, Set B)
+COLORES_BIPARTITO = {
+    "Azul": ("#97c2fc", "#ffb3b3"),     # Azul claro vs Rojo claro
+    "Rojo": ("#ff9999", "#97c2fc"),     # Rojo claro vs Azul claro
+    "Verde": ("#99ff99", "#ffccff"),    # Verde claro vs Magenta claro
+    "Amarillo": ("#ffff99", "#ccccff"), # Amarillo claro vs Lavanda
+    "Gris": ("#dddddd", "#ffb3b3"),     # Gris claro vs Rojo claro
+    "Naranja": ("#ffcc99", "#99ccff"),  # Naranja claro vs Azul claro
 }
 
 
@@ -124,15 +143,24 @@ if st.session_state.get('fullscreen', False):
         graph_fs = st.session_state.graph
         G_fs = graph_fs.obtener_datos_visuales()
         camino_fs = st.session_state.camino_resaltado
+        colores_nodos_fs = st.session_state.get('colores_nodos', {})
         
-        # Usar colores por defecto
-        colores_fs = PALETAS["Azul"]
+        # Usar colores por defecto o seleccionados
+        nombre_color = st.session_state.selector_color
+        colores_fs = PALETAS[nombre_color]
         
         try:
             nt_fs = Network(height="800px", width="100%", bgcolor="#ffffff", font_color="black", directed=graph_fs.es_dirigido())
             
             for node in G_fs.nodes():
-                color_nodo = colores_fs["resaltado"] if node in camino_fs else colores_fs["nodo"]
+                # Prioridad: colores_nodos > camino_resaltado > color base
+                if node in colores_nodos_fs:
+                    color_nodo = colores_nodos_fs[node]
+                elif node in camino_fs:
+                    color_nodo = colores_fs["resaltado"]
+                else:
+                    color_nodo = colores_fs["nodo"]
+                    
                 nt_fs.add_node(node, label=str(node), color=color_nodo, size=30, shape='circle', 
                             font={'color': 'white', 'size': 24, 'face': 'arial'})
 
@@ -206,6 +234,7 @@ with col_izq:
             del st.session_state.graph
         st.session_state.camino_resaltado = [] # Limpiar camino al reiniciar
         st.session_state.aristas_resaltadas = [] # Limpiar aristas
+        st.session_state.colores_nodos = {} # Limpiar colores de nodos
         st.session_state.mensaje_costo = None
         st.session_state.program_selector = "~" # Resetear selector
         st.session_state.previous_program = "~"
@@ -310,6 +339,7 @@ with col_izq:
 if 'graph' not in st.session_state:
     st.session_state.graph = Grafo(dirigido = True if tipo == "Dirigido" else False)
 graph = st.session_state.graph
+G = graph.obtener_datos_visuales() # DEFINIR G AQUI PARA QUE ESTE DISPONIBLE GLOBALMENTE
 
 if agregar:
     try:
@@ -322,169 +352,19 @@ if agregar:
     except ValueError:
         st.error("Por favor ingrese los nodos en el formato correcto: 'A, B'")
 
-with col_der:
-
-    c_header, c_color, c_btn = st.columns([3, 1.5, 0.5], vertical_alignment="bottom")
-
-    with c_header:
-        st.subheader("Grafo seleccionado: ")
-
-    with c_color:
-        # 'label_visibility="collapsed"' oculta la etiqueta para ahorrar espacio
-        color_seleccionado = st.selectbox("Color", list(PALETAS.keys()), label_visibility="collapsed")
-        colores = PALETAS[color_seleccionado]
-
-    if st.button("Ver en Pantalla Completa"):
-        st.session_state.fullscreen = True
-        st.rerun()
-
-    G = graph.obtener_datos_visuales()
-    
-    # --- LOGICA DE COLOREADO ---
-    camino = st.session_state.camino_resaltado
-    
-    try:
-        nt = Network(height="500px", width="500px", bgcolor="#ffffff", font_color="black", directed=graph.es_dirigido())
-        
-        # Añadir nodos manualmente para asegurar control
-        for node in G.nodes():
-            color_nodo = colores["resaltado"] if node in camino else colores["nodo"]
-            size_nodo = 25 if node in camino else 20
-            font_color = "white" if colores.get("texto") == "white" else "black"
-            
-            nt.add_node(node, label=str(node), color=color_nodo, size=size_nodo, shape='circle', 
-                        font={'color': font_color, 'size': 20, 'face': 'arial'})
-
-        # Añadir aristas manualmente para asegurar pesos
-        aristas_camino_set = set()
-        
-        # Prioridad a aristas_resaltadas (MST, etc)
-        if 'aristas_resaltadas' in st.session_state and st.session_state.aristas_resaltadas:
-            for u, v in st.session_state.aristas_resaltadas:
-                aristas_camino_set.add((u, v))
-                if not graph.es_dirigido():
-                    aristas_camino_set.add((v, u))
-        # Si no, usar camino_resaltado (Dijkstra, BFS, etc)
-        elif len(camino) > 1:
-             for i in range(len(camino) - 1):
-                 u, v = camino[i], camino[i+1]
-                 aristas_camino_set.add((u, v))
-                 if not graph.es_dirigido():
-                     aristas_camino_set.add((v, u))
-
-        for u, v, data in G.edges(data=True):
-            color_arista = colores["resaltado"] if (u, v) in aristas_camino_set else 'gray'
-            width_arista = 3 if (u, v) in aristas_camino_set else 1
-            w = data.get('weight', 0)
-            label_arista = str(w) if w != 0 else ""
-            
-            nt.add_edge(u, v, color=color_arista, width=width_arista, label=label_arista)
-
-        # Opciones de física ajustadas para evitar "explosiones" y zoom excesivo
-        nt.set_options("""
-        var options = {
-          "physics": {
-            "barnesHut": {
-              "gravitationalConstant": -3000,
-              "centralGravity": 0.5,
-              "springLength": 95,
-              "springConstant": 0.04,
-              "damping": 0.09,
-              "avoidOverlap": 0.1
-            },
-            "minVelocity": 0.75,
-            "solver": "barnesHut",
-            "stabilization": {
-              "enabled": true,
-              "iterations": 1000,
-              "updateInterval": 100,
-              "onlyDynamicEdges": false,
-              "fit": true
-            }
-          }
-        }
-        """)
-        
-        # Guardar y mostrar
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp_file:
-            nt.save_graph(tmp_file.name)
-            tmp_file.seek(0)
-            html_content = tmp_file.read().decode('utf-8')
-            
-            html_content = html_content.replace('</head>', '<style>body, html { margin: 0; padding: 0; overflow: hidden; } #mynetwork { width: 500px; height: 500px; display: block; border: 1px solid lightgray; } canvas { display: block; }</style></head>')
-            
-        components.html(html_content, height=500, width=500, scrolling=False)
-        
-    except Exception as e:
-        st.error(f"Error al generar grafo interactivo: {e}")
-        # Fallback a matplotlib si falla algo (aunque no deberia)
-        fig, ax = plt.subplots(figsize=(8, 8))
-        pos = nx.circular_layout(G)
-        nx.draw(G, pos, ax=ax, with_labels=True)
-        st.pyplot(fig)
-
-    with st.expander("Generar Grafo Aleatorio"):
-        col_r1, col_r2 = st.columns(2)
-        with col_r1:
-            tipo_aleatorio = st.radio("Tipo:", ["Dirigido", "No dirigido"], horizontal=True)
-            num_nodos = st.number_input("Nodos:", min_value=2, max_value=20, value=5)
-            con_pesos = st.checkbox("Con Pesos", value=True)
-        with col_r2:
-            # Max aristas
-            max_edges = num_nodos * (num_nodos - 1)
-            if tipo_aleatorio == "No dirigido":
-                max_edges //= 2
-            num_aristas = st.number_input("Aristas:", min_value=num_nodos-1, max_value=max_edges, value=num_nodos)
-            
-            if con_pesos:
-                c_min, c_max = st.columns(2)
-                with c_min:
-                    min_p = st.number_input("Min Peso", value=1, min_value=1)
-                with c_max:
-                    max_p = st.number_input("Max Peso", value=10, min_value=min_p)
-            else:
-                min_p, max_p = 1, 1
-            
-        if st.button("Generar Aleatorio"):
-            reiniciar_grafo()
-            # Crear grafo nuevo
-            st.session_state.graph = Grafo(dirigido = True if tipo_aleatorio == "Dirigido" else False)
-            
-            # Generar datos
-            datos_aleatorios = generar_grafo_aleatorio(
-                num_nodos, 
-                num_aristas, 
-                dirigido=(tipo_aleatorio=="Dirigido"),
-                min_peso=min_p,
-                max_peso=max_p,
-                con_pesos=con_pesos
-            )
-            
-            # Cargar en el objeto Grafo
-            for u, vecinos in datos_aleatorios.items():
-                 for v, peso in vecinos:
-                     if tipo_aleatorio == "Dirigido":
-                         st.session_state.graph.agregar_arista(u, v, peso)
-                     else:
-                         if u < v: 
-                             st.session_state.graph.agregar_arista(u, v, peso)
-                         elif u == v:
-                             st.session_state.graph.agregar_arista(u, v, peso)
-            st.rerun()
-
-
 if not graph.obtener_lista_adyacencia():
     with (col_izq):
         st.info("Comienza agregando aristas para construir tu grafo")
 else:
     with (col_izq):
-        programs = ["~", "Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","Componentes Conexas", "Es Árbol?", "Kruskal (MST)", "Prim (MST)", "BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
+        programs = ["~", "Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","Componentes Conexas", "Es Árbol?", "Es Bipartito?", "Kruskal (MST)", "Prim (MST)", "BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
         
         # Detectar cambio de programa para limpiar
         if st.session_state.program_selector != st.session_state.previous_program:
             st.session_state.mensaje_costo = None
             st.session_state.camino_resaltado = []
             st.session_state.aristas_resaltadas = []
+            st.session_state.colores_nodos = {}
             st.session_state.previous_program = st.session_state.program_selector
             # No hacemos rerun aquí para dejar que el flujo continúe con el nuevo programa
             
@@ -610,6 +490,32 @@ else:
                 st.success(f"✅ {razon}")
             else:
                 st.error(f"❌ {razon}")
+
+        if selected_Option == "Es Bipartito?":
+            st.header("Validación de Grafo Bipartito")
+            datos_grafo = graph.obtener_lista_adyacencia()
+            
+            es_bip, set_a, set_b = es_bipartito(datos_grafo)
+            
+            if es_bip:
+                st.success("✅ El grafo ES bipartito.")
+                st.write("**Conjunto A:** " + ", ".join(sorted(list(set_a))))
+                st.write("**Conjunto B:** " + ", ".join(sorted(list(set_b))))
+                
+                # Asignar colores para visualización dinámicamente
+                nombre_color = st.session_state.selector_color
+                color_a, color_b = COLORES_BIPARTITO.get(nombre_color, ("#97c2fc", "#ffb3b3"))
+                
+                colores_map = {}
+                for n in set_a:
+                    colores_map[n] = color_a
+                for n in set_b:
+                    colores_map[n] = color_b
+                
+                st.session_state.colores_nodos = colores_map
+                
+            else:
+                st.error("❌ El grafo NO es bipartito.")
                 
         if selected_Option == "Kruskal (MST)":
             st.header("Árbol de Expansión Mínima (Kruskal)")
@@ -773,3 +679,114 @@ else:
                 st.success(st.session_state.mensaje_costo)
                 if st.session_state.camino_resaltado:
                     st.write(f"**Camino:** {' → '.join(st.session_state.camino_resaltado)}")
+
+# --- MOVED col_der LOGIC HERE ---
+with col_der:
+
+    c_header, c_color, c_btn = st.columns([3, 1.5, 0.5], vertical_alignment="bottom")
+
+    with c_header:
+        st.subheader("Grafo seleccionado: ")
+
+    with c_color:
+        # 'label_visibility="collapsed"' oculta la etiqueta para ahorrar espacio
+        # Usamos key para persistir y acceder en col_izq
+        color_seleccionado = st.selectbox("Color", OPCIONES_COLOR, label_visibility="collapsed", key="selector_color")
+        colores = PALETAS[color_seleccionado]
+
+    if st.button("Ver en Pantalla Completa"):
+        st.session_state.fullscreen = True
+        st.rerun()
+
+    # G YA ESTA DEFINIDO ARRIBA
+    
+    # --- LOGICA DE COLOREADO ---
+    camino = st.session_state.camino_resaltado
+    colores_nodos = st.session_state.get('colores_nodos', {})
+    
+    try:
+        nt = Network(height="500px", width="500px", bgcolor="#ffffff", font_color="black", directed=graph.es_dirigido())
+        
+        # Añadir nodos manualmente para asegurar control
+        for node in G.nodes():
+            # Prioridad: colores_nodos > camino_resaltado > color base
+            if node in colores_nodos:
+                color_nodo = colores_nodos[node]
+            elif node in camino:
+                color_nodo = colores["resaltado"]
+            else:
+                color_nodo = colores["nodo"]
+            
+            size_nodo = 25 if node in camino or node in colores_nodos else 20
+            font_color = "white" if colores.get("texto") == "white" else "black"
+            
+            nt.add_node(node, label=str(node), color=color_nodo, size=size_nodo, shape='circle', 
+                        font={'color': font_color, 'size': 20, 'face': 'arial'})
+
+        # Añadir aristas manualmente para asegurar pesos
+        aristas_camino_set = set()
+        
+        # Prioridad a aristas_resaltadas (MST, etc)
+        if 'aristas_resaltadas' in st.session_state and st.session_state.aristas_resaltadas:
+            for u, v in st.session_state.aristas_resaltadas:
+                aristas_camino_set.add((u, v))
+                if not graph.es_dirigido():
+                    aristas_camino_set.add((v, u))
+        # Si no, usar camino_resaltado (Dijkstra, BFS, etc)
+        elif len(camino) > 1:
+             for i in range(len(camino) - 1):
+                 u, v = camino[i], camino[i+1]
+                 aristas_camino_set.add((u, v))
+                 if not graph.es_dirigido():
+                     aristas_camino_set.add((v, u))
+
+        for u, v, data in G.edges(data=True):
+            color_arista = colores["resaltado"] if (u, v) in aristas_camino_set else 'gray'
+            width_arista = 3 if (u, v) in aristas_camino_set else 1
+            w = data.get('weight', 0)
+            label_arista = str(w) if w != 0 else ""
+            
+            nt.add_edge(u, v, color=color_arista, width=width_arista, label=label_arista)
+
+        # Opciones de física ajustadas para evitar "explosiones" y zoom excesivo
+        nt.set_options("""
+        var options = {
+          "physics": {
+            "barnesHut": {
+              "gravitationalConstant": -3000,
+              "centralGravity": 0.5,
+              "springLength": 95,
+              "springConstant": 0.04,
+              "damping": 0.09,
+              "avoidOverlap": 0.1
+            },
+            "minVelocity": 0.75,
+            "solver": "barnesHut",
+            "stabilization": {
+              "enabled": true,
+              "iterations": 1000,
+              "updateInterval": 100,
+              "onlyDynamicEdges": false,
+              "fit": true
+            }
+          }
+        }
+        """)
+        
+        # Guardar y mostrar
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as tmp_file:
+            nt.save_graph(tmp_file.name)
+            tmp_file.seek(0)
+            html_content = tmp_file.read().decode('utf-8')
+            
+            html_content = html_content.replace('</head>', '<style>body, html { margin: 0; padding: 0; overflow: hidden; } #mynetwork { width: 500px; height: 500px; display: block; border: 1px solid lightgray; } canvas { display: block; }</style></head>')
+            
+        components.html(html_content, height=500, width=500, scrolling=False)
+        
+    except Exception as e:
+        st.error(f"Error al generar grafo interactivo: {e}")
+        # Fallback a matplotlib si falla algo (aunque no deberia)
+        fig, ax = plt.subplots(figsize=(8, 8))
+        pos = nx.circular_layout(G)
+        nx.draw(G, pos, ax=ax, with_labels=True)
+        st.pyplot(fig)
