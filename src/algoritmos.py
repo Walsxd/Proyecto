@@ -657,3 +657,36 @@ def hopcroft_karp(grafo):
             matching_edges.append((u, v))
             
     return True, matching_edges
+
+
+def kruskal_maximo(graph):
+    """
+    Algoritmo de Kruskal Inverso (o Kruskal para Máximo Spanning Tree).
+    Retorna (aristas_mst, peso_total).
+    aristas_mst es una lista de tuplas (u, v, peso).
+    """
+    # Recolectar todas las aristas
+    aristas = []
+    procesados = set()
+    
+    for u in graph:
+        for v, peso in graph[u]:
+            # Ordenar para evitar duplicados en no dirigido
+            edge = tuple(sorted((u, v)))
+            if edge not in procesados:
+                aristas.append((u, v, peso))
+                procesados.add(edge)
+                
+    # Ordenar por peso DESCENDENTE
+    aristas.sort(key=lambda x: x[2], reverse=True)
+    
+    uf = UnionFind(graph.keys())
+    mst = []
+    peso_total = 0
+    
+    for u, v, peso in aristas:
+        if uf.union(u, v):
+            mst.append((u, v, peso))
+            peso_total += peso
+            
+    return mst, peso_total

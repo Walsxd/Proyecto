@@ -357,7 +357,7 @@ if not graph.obtener_lista_adyacencia():
         st.info("Comienza agregando aristas para construir tu grafo")
 else:
     with (col_izq):
-        programs = ["~", "Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","Componentes Conexas", "Es Árbol?", "Es Bipartito?", "Pareo (Matching)", "Kruskal (MST)", "Prim (MST)", "BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
+        programs = ["~", "Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","Componentes Conexas", "Es Árbol?", "Es Bipartito?", "Pareo (Matching)", "Kruskal (MST)", "Reverse-Kruskal (MaxST)", "Prim (MST)", "BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
         
         # Detectar cambio de programa para limpiar
         if st.session_state.program_selector != st.session_state.previous_program:
@@ -576,6 +576,32 @@ else:
                     
                     st.session_state.aristas_resaltadas = aristas_mst
                     # st.session_state.camino_resaltado = list(nodos_mst) # No resaltar nodos para MST, solo aristas
+
+        if selected_Option == "Reverse-Kruskal (MaxST)":
+            st.header("Árbol de Expansión Máxima (Reverse-Kruskal)")
+            datos_grafo = graph.obtener_lista_adyacencia()
+            es_dirigido = graph.es_dirigido()
+            
+            if es_dirigido:
+                st.warning("El algoritmo de Kruskal está diseñado para grafos no dirigidos.")
+            else:
+                # Verificar conectividad
+                comp = obtener_componentes_conexas(datos_grafo)
+                if len(comp) > 1:
+                    st.error("El grafo no es conexo. No existe un MaxST único (sería un bosque).")
+                else:
+                    mst, peso_total = kruskal_maximo(datos_grafo)
+                    st.write(f"**Peso Total del MaxST:** {peso_total}")
+                    st.write("**Aristas del MaxST:**")
+                    for u, v, p in mst:
+                        st.write(f"{u} - {v} : {p}")
+                        
+                    # Resaltar en el grafo
+                    aristas_mst = []
+                    for u, v, p in mst:
+                        aristas_mst.append((u, v))
+                    
+                    st.session_state.aristas_resaltadas = aristas_mst
 
         if selected_Option == "Prim (MST)":
             st.header("Árbol de Expansión Mínima (Prim)")
