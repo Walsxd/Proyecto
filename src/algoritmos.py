@@ -51,7 +51,7 @@ def matriz_adyacencia(graph):
     for vecinos in graph.values():
         for v, w in vecinos:
             nodos.add(v)
-    indices = sorted(list(nodos))
+    indices = sorted(list(nodos), key=lambda x: (len(x), x))
     n = len(indices)
     
     # Crear matriz n x n llena de ceros
@@ -80,7 +80,7 @@ def matriz_incidencia(graph):
             # Asumiremos formato standard: cada entrada en la lista es una arista.
             aristas.append((u, v))
             
-    indices = sorted(list(nodos_set))
+    indices = sorted(list(nodos_set), key=lambda x: (len(x), x))
     num_nodos = len(indices)
     num_aristas = len(aristas)
     
