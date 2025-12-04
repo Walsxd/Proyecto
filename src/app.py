@@ -250,13 +250,79 @@ with col_izq:
         if 'graph' in st.session_state:
             default_index = 0 if st.session_state.graph.es_dirigido() else 1
 
-        tipo = st.selectbox(
-            "Tipo de grafo: ",
-            ["Dirigido", "No dirigido"],
-            index=default_index,
-            on_change=reiniciar_grafo
-        )
+        # Inicializar estado si no existe
+        if 'tipo_grafo_ui' not in st.session_state:
+             st.session_state.tipo_grafo_ui = "Dirigido" if default_index == 0 else "No dirigido"
+
+        st.write("Tipo de grafo:")
+        col_t1, col_t2 = st.columns(2)
+        
+        with col_t1:
+            if st.button("Dirigido", type="primary" if st.session_state.tipo_grafo_ui == "Dirigido" else "secondary", use_container_width=True):
+                if st.session_state.tipo_grafo_ui != "Dirigido":
+                    st.session_state.tipo_grafo_ui = "Dirigido"
+                    reiniciar_grafo()
+                    st.rerun()
+        
+        with col_t2:
+            if st.button("No dirigido", type="primary" if st.session_state.tipo_grafo_ui == "No dirigido" else "secondary", use_container_width=True):
+                if st.session_state.tipo_grafo_ui != "No dirigido":
+                    st.session_state.tipo_grafo_ui = "No dirigido"
+                    reiniciar_grafo()
+                    st.rerun()
+
+        tipo = st.session_state.tipo_grafo_ui
+
+
+
+
+
+
     st.write("") 
+
+    with st.expander("Generar Grafo Aleatorio"):
+        col_rand1, col_rand2 = st.columns(2)
+        with col_rand1:
+            num_nodos_rand = st.number_input("Nodos", min_value=2, max_value=100, value=5, key="rand_nodos")
+            min_peso_rand = st.number_input("Peso Mínimo", value=1, key="rand_min_peso")
+        with col_rand2:
+            # Estimación de aristas máximas
+            max_aristas = num_nodos_rand * (num_nodos_rand - 1)
+            if not (tipo == "Dirigido"):
+                max_aristas //= 2
+            
+            num_aristas_rand = st.number_input("Aristas", min_value=num_nodos_rand-1, max_value=max_aristas, value=min(num_nodos_rand, max_aristas), key="rand_aristas")
+            max_peso_rand = st.number_input("Peso Máximo", value=10, key="rand_max_peso")
+            
+        if st.button("Generar Aleatorio"):
+            reiniciar_grafo()
+            adj_aleatoria = generar_grafo_aleatorio(
+                num_nodos_rand, 
+                num_aristas_rand, 
+                dirigido=(tipo == "Dirigido"),
+                min_peso=min_peso_rand,
+                max_peso=max_peso_rand
+            )
+            
+            # Crear nuevo grafo y poblarlo
+            nuevo_grafo = Grafo(dirigido=(tipo == "Dirigido"))
+            
+
+            added_edges = set()
+            for u, vecinos in adj_aleatoria.items():
+                for v, w in vecinos:
+                    if tipo == "Dirigido":
+                        nuevo_grafo.agregar_arista(u, v, w)
+                    else:
+                        # Para no dirigido, solo agregamos si no hemos procesado la arista (u, v) o (v, u)
+                        edge = tuple(sorted((u, v)))
+                        if edge not in added_edges:
+                            nuevo_grafo.agregar_arista(u, v, w)
+                            added_edges.add(edge)
+
+            
+            st.session_state.graph = nuevo_grafo
+            st.rerun()
 
     with st.expander("Gestión de Archivos"):
         # Botón de descarga centrado
@@ -308,7 +374,13 @@ with col_izq:
             
             try:
                 G_export = st.session_state.graph.obtener_datos_visuales()
-                fig, ax = plt.subplots(figsize=(10, 10), dpi=100)
+                
+                # Calcular tamaño dinámico basado en el número de nodos
+                num_nodos = len(G_export.nodes())
+                # Tamaño base 12, aumenta con los nodos, tope en 50
+                calc_size = max(12, min(50, num_nodos * 0.5))
+                
+                fig, ax = plt.subplots(figsize=(calc_size, calc_size), dpi=100)
                 
                 pos = nx.circular_layout(G_export)
                 nx.draw_networkx_nodes(G_export, pos, ax=ax, node_size=700, node_color='#97c2fc', edgecolors='black')
@@ -357,7 +429,7 @@ if not graph.obtener_lista_adyacencia():
         st.info("Comienza agregando aristas para construir tu grafo")
 else:
     with (col_izq):
-        programs = ["~", "Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","Componentes Conexas", "Es Árbol?", "Es Bipartito?", "Pareo (Matching)", "Kruskal (MST)", "Prim (MST)", "BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
+        programs = ["~", "Matriz de adyacencia","Lista de adyacencia","Matriz de incidencia","Componentes Conexas", "Es Árbol?", "Es Bipartito?", "Pareo (Matching)", "Kruskal (MST)", "Reverse-Kruskal (MaxST)", "Prim (MST)", "BFS", "DFS", "Bellman-Ford", "Dijkstra", "Floyd-Warshall"]
         
         # Detectar cambio de programa para limpiar
         if st.session_state.program_selector != st.session_state.previous_program:
@@ -472,8 +544,25 @@ else:
                 
             st.write(f"**Número de componentes encontradas:** {len(componentes)}")
             
+            # Crear DataFrame para componentes
+            data_comp = []
             for i, comp in enumerate(componentes):
-                st.write(f"**Componente {i+1}:** {', '.join(comp)}")
+                data_comp.append({
+                    "Componente": i + 1,
+                    "Nodos": ", ".join(comp),
+                    "Tamaño": len(comp)
+                })
+            
+            df_comp = pd.DataFrame(data_comp)
+            df_comp.set_index("Componente", inplace=True)
+            
+            # Estilizar tabla
+            estilos_css = [
+                {'selector': 'th', 'props': [('text-align', 'center'), ('background-color', '#262730'), ('color', 'white')]},
+                {'selector': 'td', 'props': [('text-align', 'center')]},
+            ]
+            st.table(df_comp.style.set_table_styles(estilos_css))
+
                 
             # Opcional: Colorear componentes (si se desea en el futuro)
             # Por ahora solo mostramos la lista textual como se acordó.
@@ -499,8 +588,28 @@ else:
             
             if es_bip:
                 st.success("✅ El grafo ES bipartito.")
-                st.write("**Conjunto A:** " + ", ".join(sorted(list(set_a))))
-                st.write("**Conjunto B:** " + ", ".join(sorted(list(set_b))))
+                # Preparar datos para la tabla
+                lista_a = sorted(list(set_a), key=lambda x: (len(x), x))
+                lista_b = sorted(list(set_b), key=lambda x: (len(x), x))
+                
+                # Igualar longitudes para el DataFrame
+                max_len = max(len(lista_a), len(lista_b))
+                lista_a += [""] * (max_len - len(lista_a))
+                lista_b += [""] * (max_len - len(lista_b))
+                
+                df_bipartito = pd.DataFrame({
+                    "Conjunto A": lista_a,
+                    "Conjunto B": lista_b
+                })
+                
+                # Estilizar la tabla
+                estilos_css = [
+                    {'selector': 'th', 'props': [('text-align', 'center'), ('background-color', '#262730'), ('color', 'white')]},
+                    {'selector': 'td', 'props': [('text-align', 'center')]},
+                ]
+                df_bipartito.index = range(1, len(df_bipartito) + 1)
+                st.table(df_bipartito.style.set_table_styles(estilos_css))
+
                 
                 # Asignar colores para visualización dinámicamente
                 nombre_color = st.session_state.selector_color
@@ -526,9 +635,18 @@ else:
             if tipo_pareo == "Maximal (Greedy)":
                 matching = matching_maximal(datos_grafo)
                 st.write(f"**Tamaño del Matching:** {len(matching)}")
-                st.write("**Aristas del Matching:**")
-                for u, v in matching:
-                    st.write(f"{u} - {v}")
+                # Crear DataFrame para matching
+                df_matching = pd.DataFrame(list(matching), columns=["Nodo U", "Nodo V"])
+                
+                # Estilizar tabla
+                estilos_css = [
+                    {'selector': 'th', 'props': [('text-align', 'center'), ('background-color', '#262730'), ('color', 'white')]},
+                    {'selector': 'td', 'props': [('text-align', 'center')]},
+                ]
+                df_matching.index = range(1, len(df_matching) + 1)
+                st.table(df_matching.style.set_table_styles(estilos_css))
+
+
                 
                 st.session_state.aristas_resaltadas = matching
                 
@@ -538,9 +656,18 @@ else:
                     st.error("Hopcroft-Karp requiere un grafo bipartito.")
                 else:
                     st.write(f"**Tamaño del Matching Máximo:** {len(matching)}")
-                    st.write("**Aristas del Matching:**")
-                    for u, v in matching:
-                        st.write(f"{u} - {v}")
+                    # Crear DataFrame para matching
+                    df_matching = pd.DataFrame(list(matching), columns=["Nodo U", "Nodo V"])
+                    
+                    # Estilizar tabla
+                    estilos_css = [
+                        {'selector': 'th', 'props': [('text-align', 'center'), ('background-color', '#262730'), ('color', 'white')]},
+                        {'selector': 'td', 'props': [('text-align', 'center')]},
+                    ]
+                    df_matching.index = range(1, len(df_matching) + 1)
+                    st.table(df_matching.style.set_table_styles(estilos_css))
+
+
                     
                     st.session_state.aristas_resaltadas = matching
 
@@ -562,9 +689,18 @@ else:
                 else:
                     mst, peso_total = kruskal(datos_grafo)
                     st.write(f"**Peso Total del MST:** {peso_total}")
-                    st.write("**Aristas del MST:**")
-                    for u, v, p in mst:
-                        st.write(f"{u} - {v} : {p}")
+                    # Crear DataFrame para MST
+                    df_mst = pd.DataFrame(mst, columns=["Origen", "Destino", "Peso"])
+                    
+                    # Estilizar tabla
+                    estilos_css = [
+                        {'selector': 'th', 'props': [('text-align', 'center'), ('background-color', '#262730'), ('color', 'white')]},
+                        {'selector': 'td', 'props': [('text-align', 'center')]},
+                    ]
+                    df_mst.index = range(1, len(df_mst) + 1)
+                    st.table(df_mst.style.set_table_styles(estilos_css))
+
+
                         
                     # Resaltar en el grafo
                     aristas_mst = []
@@ -576,6 +712,41 @@ else:
                     
                     st.session_state.aristas_resaltadas = aristas_mst
                     # st.session_state.camino_resaltado = list(nodos_mst) # No resaltar nodos para MST, solo aristas
+
+        if selected_Option == "Reverse-Kruskal (MaxST)":
+            st.header("Árbol de Expansión Máxima (Reverse-Kruskal)")
+            datos_grafo = graph.obtener_lista_adyacencia()
+            es_dirigido = graph.es_dirigido()
+            
+            if es_dirigido:
+                st.warning("El algoritmo de Kruskal está diseñado para grafos no dirigidos.")
+            else:
+                # Verificar conectividad
+                comp = obtener_componentes_conexas(datos_grafo)
+                if len(comp) > 1:
+                    st.error("El grafo no es conexo. No existe un MaxST único (sería un bosque).")
+                else:
+                    mst, peso_total = kruskal_maximo(datos_grafo)
+                    st.write(f"**Peso Total del MaxST:** {peso_total}")
+                    # Crear DataFrame para MaxST
+                    df_mst = pd.DataFrame(mst, columns=["Origen", "Destino", "Peso"])
+                    
+                    # Estilizar tabla
+                    estilos_css = [
+                        {'selector': 'th', 'props': [('text-align', 'center'), ('background-color', '#262730'), ('color', 'white')]},
+                        {'selector': 'td', 'props': [('text-align', 'center')]},
+                    ]
+                    df_mst.index = range(1, len(df_mst) + 1)
+                    st.table(df_mst.style.set_table_styles(estilos_css))
+
+
+                        
+                    # Resaltar en el grafo
+                    aristas_mst = []
+                    for u, v, p in mst:
+                        aristas_mst.append((u, v))
+                    
+                    st.session_state.aristas_resaltadas = aristas_mst
 
         if selected_Option == "Prim (MST)":
             st.header("Árbol de Expansión Mínima (Prim)")
@@ -595,9 +766,18 @@ else:
                     else:
                         mst, peso_total = prim(datos_grafo, start_node)
                         st.write(f"**Peso Total del MST:** {peso_total}")
-                        st.write("**Aristas del MST:**")
-                        for u, v, p in mst:
-                            st.write(f"{u} - {v} : {p}")
+                        # Crear DataFrame para MST
+                        df_mst = pd.DataFrame(mst, columns=["Origen", "Destino", "Peso"])
+                        
+                        # Estilizar tabla
+                        estilos_css = [
+                            {'selector': 'th', 'props': [('text-align', 'center'), ('background-color', '#262730'), ('color', 'white')]},
+                            {'selector': 'td', 'props': [('text-align', 'center')]},
+                        ]
+                        df_mst.index = range(1, len(df_mst) + 1)
+                        st.table(df_mst.style.set_table_styles(estilos_css))
+
+
 
                         aristas_mst = []
                         nodos_mst = set()
